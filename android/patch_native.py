@@ -26,7 +26,7 @@ replace(main, "// Simulator configuration\nSIM_config_type s_SIM_config = {};",
 SIM_config_type s_SIM_config = {};
 
 #ifdef SDK_BUILD_ANDROID
-static void SIM_AndroidStartupStage(const char *stage) {
+extern "C" void SIM_AndroidStartupStage(const char *stage) {
   FILE *file = fopen("android_startup.txt", "w");
   if (file) {
     fprintf(file, "%s\\n", stage);
@@ -112,6 +112,64 @@ replace(main,
 #endif
   NitroMain();
   return 0;""")
+
+# Keep the last completed startup step on disk so a crash on a physical phone
+# can be narrowed down without adb or a native tombstone.
+stage_macro = """#ifdef SDK_BUILD_ANDROID
+extern void SIM_AndroidStartupStage(const char *stage);
+#define ANDROID_STAGE(stage) SIM_AndroidStartupStage(stage)
+#else
+#define ANDROID_STAGE(stage) ((void)0)
+#endif
+"""
+
+game = root / "src/main.c"
+replace(game, "#define RESET_COMBO", stage_macro + "\n#define RESET_COMBO")
+for old, new in (
+    ("    SIM_Config_prj_init();", '    ANDROID_STAGE("Configuración del juego");\n    SIM_Config_prj_init();'),
+    ("    InitSystem();", '    ANDROID_STAGE("Sistema: entrando");\n    InitSystem();\n    ANDROID_STAGE("Sistema: listo");'),
+    ("    InitVRAM();", '    ANDROID_STAGE("Memoria de vídeo");\n    InitVRAM();'),
+    ("    InitKeypadAndTouchpad();", '    ANDROID_STAGE("Controles");\n    InitKeypadAndTouchpad();'),
+    ("    InitRTC();", '    ANDROID_STAGE("Reloj");\n    InitRTC();'),
+    ("    InitApplication();", '    ANDROID_STAGE("Aplicación");\n    InitApplication();'),
+    ("    Fonts_Init();", '    ANDROID_STAGE("Fuentes");\n    Fonts_Init();'),
+    ("    sApplication.args.saveData = SaveData_Init();", '    ANDROID_STAGE("Datos guardados");\n    sApplication.args.saveData = SaveData_Init();'),
+    ("    SoundSystem_Init(SaveData_GetChatotCry", '    ANDROID_STAGE("Sonido del juego");\n    SoundSystem_Init(SaveData_GetChatotCry'),
+    ("    if (sub_02038FFC(HEAP_ID_APPLICATION)", '    ANDROID_STAGE("Red y configuración");\n    if (sub_02038FFC(HEAP_ID_APPLICATION)'),
+    ("    if (SaveData_BackupExists(sApplication.args.saveData)", '    ANDROID_STAGE("Preparando pantalla inicial");\n    if (SaveData_BackupExists(sApplication.args.saveData)'),
+    ("    gIgnoreCartridgeForWake = FALSE;\n\n    while (TRUE) {", '    gIgnoreCartridgeForWake = FALSE;\n\n    ANDROID_STAGE("Primer fotograma");\n    while (TRUE) {'),
+):
+    replace(game, old, new)
+
+system = root / "src/system.c"
+replace(system, "#define MAIN_TASK_MAX", stage_macro + "\n#define MAIN_TASK_MAX")
+for old, new in (
+    ("    OS_Init();", '    ANDROID_STAGE("Sistema: OS_Init");\n    OS_Init();'),
+    ("    FX_Init();", '    ANDROID_STAGE("Sistema: gráficos");\n    FX_Init();'),
+    ("    InitHeapSystem();", '    ANDROID_STAGE("Sistema: heaps");\n    InitHeapSystem();'),
+    ("    gSystem.mainTaskMgr = SysTaskManager_Init", '    ANDROID_STAGE("Sistema: tareas");\n    gSystem.mainTaskMgr = SysTaskManager_Init'),
+    ("    FS_Init(1);", '    ANDROID_STAGE("Sistema: FS_Init");\n    FS_Init(1);'),
+    ("    CheckForMemoryTampering();", '    ANDROID_STAGE("Sistema: cabecera ROM");\n    CheckForMemoryTampering();'),
+    ("    u32 fsTableSize = FS_GetTableSize();", '    ANDROID_STAGE("Sistema: tablas ROM");\n    u32 fsTableSize = FS_GetTableSize();'),
+    ("    FS_LoadTable(fsTable, fsTableSize);", '    FS_LoadTable(fsTable, fsTableSize);\n    ANDROID_STAGE("Sistema: FS listo");'),
+    ("    InitCRC16Table(HEAP_ID_SYSTEM);", '    ANDROID_STAGE("Sistema: CRC");\n    InitCRC16Table(HEAP_ID_SYSTEM);'),
+):
+    replace(system, old, new)
+
+os_init = root / "subprojects/libntr/libraries/os/src/os_init.c"
+replace(os_init, "#pragma profile off\n\nvoid OS_Init (void)",
+        stage_macro + "\n#pragma profile off\n\nvoid OS_Init (void)")
+for old, new in (
+    ("    OS_InitArena();\n\n    PXI_Init();", '    ANDROID_STAGE("OS: arena");\n    OS_InitArena();\n\n    ANDROID_STAGE("OS: PXI");\n    PXI_Init();'),
+    ("    OS_InitLock();\n    OS_InitArenaEx();", '    ANDROID_STAGE("OS: memoria y locks");\n    OS_InitLock();\n    OS_InitArenaEx();'),
+    ("    OS_InitIrqTable();\n    OS_SetIrqStackChecker();", '    ANDROID_STAGE("OS: interrupciones");\n    OS_InitIrqTable();\n    OS_SetIrqStackChecker();'),
+    ("    MI_Init();\n\n    OS_InitVAlarm();", '    ANDROID_STAGE("OS: memoria interna");\n    MI_Init();\n\n    OS_InitVAlarm();'),
+    ("#ifndef SDK_NO_THREAD\n    OS_InitThread();", '#ifndef SDK_NO_THREAD\n    ANDROID_STAGE("OS: hilos");\n    OS_InitThread();'),
+    ("#ifndef SDK_TEG\n    CTRDG_Init();\n#endif\n\n#ifndef SDK_SMALL_BUILD", '#ifndef SDK_TEG\n    ANDROID_STAGE("OS: cartucho");\n    CTRDG_Init();\n#endif\n\n#ifndef SDK_SMALL_BUILD'),
+    ("    CARD_Init();", '    ANDROID_STAGE("OS: tarjeta ROM");\n    CARD_Init();'),
+    ("    PM_Init();", '    ANDROID_STAGE("OS: energía");\n    PM_Init();'),
+):
+    replace(os_init, old, new)
 
 gui = root / "subprojects/libntr/libraries/sim/src/gui/gui.c"
 replace(gui,
