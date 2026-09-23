@@ -5,6 +5,7 @@ on:
     paths:
       - 'pokeplatinum-android-source.zip.t0.002'
       - 'assemble-source-bundle.py'
+      - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
 permissions:
@@ -22,9 +23,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - name: Install Android and native build tools
         run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build nasm gcc-arm-none-eabi binutils-arm-none-eabi
