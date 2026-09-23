@@ -38,6 +38,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Correct NDK toolchain path in bundled source
+        run: |
+          sed -i 's|$TOOLCHAIN/build/cmake/android.toolchain.cmake|$NDK/build/cmake/android.toolchain.cmake|g' \
+            _source/pokeplatinum-pcport-source/tools/android/build-native.sh
       - name: Compile APK
         run: gradle -p _source/pokeplatinum-pcport-source/android assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
