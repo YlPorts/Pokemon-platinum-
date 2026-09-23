@@ -65,6 +65,11 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           root = Path('_source/pokeplatinum-pcport-source')
+          network = root / 'subprojects/libntrwifi/libraries/cps/src/network.c'
+          source = network.read_text()
+          source = source.replace('#include <nitroWiFi/decomp/decomp_defs_nitrowifi.h>',
+                                  '#include <nitroWiFi/decomp/decomp_defs_nitrowifi.h>\n#if defined(SDK_BUILD_ANDROID)\n#define SDK_BUILD_LINUX\n#endif', 1)
+          network.write_text(source)
           g3d = root / 'subprojects/libntrsystem/include/nnsys/g3d'
           config = g3d / 'config.h'
           source = config.read_text()
