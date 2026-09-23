@@ -48,6 +48,10 @@ jobs:
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i "s|c_args = \['-fPIC'\]|c_args = ['-fPIC', '-I\$SDL_INCLUDE_DIR', '-I\$ENET_PREFIX/include']|; s|cpp_args = \['-fPIC'\]|cpp_args = ['-fPIC', '-I\$SDL_INCLUDE_DIR', '-I\$ENET_PREFIX/include']|" \
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
+          sed -i '/^#define NITRO_H_$/a\
+          #if defined(SDK_BUILD_ANDROID)\
+          #define ATTRIBUTE_ALIGN(x) __attribute__((aligned(x)))\
+          #endif' _source/pokeplatinum-pcport-source/subprojects/libntr/include/nitro.h
           sed -i "s/\['c', 'cpp', 'nasm'\]/['c', 'cpp']/" \
             _source/pokeplatinum-pcport-source/meson.build
           sed -i "s/'c', 'cpp', 'nasm'/'c', 'cpp'/" \
