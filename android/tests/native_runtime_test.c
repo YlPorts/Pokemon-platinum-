@@ -12,6 +12,7 @@
 #include <nnsys/snd/sndarc.h>
 #include <nnsys/snd/player.h>
 #include <nnsys/snd/sndarc_player.h>
+#include <nnsys/snd/sndarc_loader.h>
 
 _Static_assert(sizeof(u32) == 4 && sizeof(s32) == 4, "Nitro integers are 32-bit");
 _Static_assert(sizeof(fx32) == 4, "Fixed point is 32-bit");
@@ -20,12 +21,23 @@ _Static_assert(sizeof(SNDBinaryBlockHeader) == 8, "SDAT block header layout");
 _Static_assert(sizeof(NNSSndArcHeader) == 48, "SDAT archive header layout");
 _Static_assert(offsetof(CARDRomHeader, game_code) == 12, "ROM game code layout");
 
+u8 s_HW_MAIN_MEM[0x800000];
+void MI_CpuFill8(void *dst, u8 value, u32 size) { memset(dst, value, size); }
+void MI_CpuCopy8(const void *src, void *dst, u32 size) { memcpy(dst, src, size); }
 void MIi_CpuClear32(u32 value, void *dst, u32 size) {
     for (u32 i = 0; i < size / 4; ++i) ((u32 *)dst)[i] = value;
 }
 u32 SND_GetCurrentCommandTag(void) { return 0; }
 BOOL SND_FlushCommand(u32 block) { (void)block; return TRUE; }
 void SND_WaitForCommandProc(u32 tag) { (void)tag; }
+void SNDi_LockMutex(void) {}
+void SNDi_UnlockMutex(void) {}
+void DC_StoreRange(const void *memory, u32 size) { (void)memory; (void)size; }
+void SND_InvalidateSeqData(const void *start, const void *end) { (void)start; (void)end; }
+void SND_InvalidateBankData(const void *start, const void *end) { (void)start; (void)end; }
+void SND_InvalidateWaveData(const void *start, const void *end) { (void)start; (void)end; }
+OSIntrMode OS_DisableInterrupts(void) { return 0; }
+OSIntrMode OS_RestoreInterrupts(OSIntrMode mode) { return mode; }
 void SIM_AndroidStartupStage(const char *stage) { (void)stage; }
 void WIN_CheckAndFreeAnimBank(void *start, void *end) { (void)start; (void)end; }
 void WIN_CheckAndFreeCellBank(void *start, void *end) { (void)start; (void)end; }
@@ -59,7 +71,7 @@ static void on_dispose(void *memory, u32 size, u64 identity, u32 number) {
 
 int main(int argc, char **argv) {
     assert(argc == 2);
-    const size_t heap_size = 8 * 1024 * 1024;
+    const size_t heap_size = 0xBBC00 * 2; /* Android SoundSystem heap capacity */
     void *buffer = malloc(heap_size);
     assert(buffer);
     NNSFndHeapHandle expandable = NNS_FndCreateExpHeap(buffer, heap_size);
@@ -101,6 +113,7 @@ int main(int argc, char **argv) {
     assert(players > 0);
     NNSi_SndPlayerInit();
     assert(NNS_SndArcPlayerSetup(heap));
+    assert(NNS_SndArcLoadGroup(0, heap)); /* GROUP_GLOBAL, production startup */
     int baseline = NNS_SndHeapSaveState(heap);
     assert(baseline >= 1);
     for (int pass = 0; pass < 20; ++pass) {
@@ -118,6 +131,6 @@ int main(int argc, char **argv) {
     assert(arc.info == NULL && arc.fat == NULL);
     assert(FS_CloseFile(&arc.file));
     free(buffer);
-    printf("PASS: ABI, SDAT 2009 files, %d players, 1280 allocations/disposals\n", players);
+    printf("PASS: ABI, SDAT 2009 files, %d players, global sound group, 1280 allocations/disposals\n", players);
     return 0;
 }

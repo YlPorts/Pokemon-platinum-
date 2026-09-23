@@ -285,7 +285,15 @@ public final class LauncherActivity extends Activity {
                     report.append("\nSalida: ").append(exit.getReason()).append(" estado: ")
                             .append(exit.getStatus()).append("\n").append(exit.getDescription()).append('\n');
                     try (InputStream trace = exit.getTraceInputStream()) {
-                        if (trace != null) report.append(readDiagnosticText(trace, 65536));
+                        if (trace != null) {
+                            byte[] bytes = readDiagnosticBytes(trace, 131072);
+                            if (exit.getReason() == android.app.ApplicationExitInfo.REASON_CRASH_NATIVE) {
+                                report.append("Tombstone protobuf (base64):\n")
+                                        .append(android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP));
+                            } else {
+                                report.append(new String(bytes, StandardCharsets.UTF_8));
+                            }
+                        }
                     } catch (IOException error) { report.append(error.getMessage()); }
                     break;
                 }
@@ -300,13 +308,17 @@ public final class LauncherActivity extends Activity {
     }
 
     private static String readDiagnosticText(InputStream input, int limit) throws IOException {
+        return new String(readDiagnosticBytes(input, limit), StandardCharsets.UTF_8);
+    }
+
+    private static byte[] readDiagnosticBytes(InputStream input, int limit) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         byte[] chunk = new byte[4096];
         int count;
         while (output.size() < limit && (count = input.read(chunk, 0, Math.min(chunk.length, limit - output.size()))) > 0) {
             output.write(chunk, 0, count);
         }
-        return output.toString("UTF-8");
+        return output.toByteArray();
     }
 
     private void chooseRom() {

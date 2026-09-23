@@ -15,6 +15,7 @@ SOURCES=("$TEST_DIR/native_runtime_test.c"
     "$NNS/libraries/snd/src/heap.c" "$NNS/libraries/snd/src/sndarc.c"
     "$NNS/libraries/snd/src/player.c" "$NNS/libraries/snd/src/sndarc_player.c"
     "$NNS/libraries/snd/src/fader.c"
+    "$NNS/libraries/snd/src/sndarc_loader.c" "$NTR/libraries/snd/src/snd_bank.c"
     "$NNS/libraries/fnd/src/frameheap.c" "$NNS/libraries/fnd/src/list.c"
     "$NNS/libraries/fnd/src/expheap.c"
     "$NNS/libraries/fnd/src/heapcommon.c")

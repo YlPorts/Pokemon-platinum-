@@ -135,6 +135,32 @@ mapping = {'Y': 'X', 'X': 'Y', 'B': 'A', 'A': 'B'}
 source = re.sub(r'SIM_ANDROID_([YXBA])\);', lambda m: f'SIM_ANDROID_{mapping[m[1]]});', source)
 source = re.sub(r'SIM_GUI_AndroidButton\("([YXBA])"', lambda m: f'SIM_GUI_AndroidButton("{mapping[m[1]]}"', source)
 gui.write_text(source)
+edit(gui, '    if (aEvent->type == SDL_FINGERDOWN && aEvent->tfinger.x < 0.19f &&',
+     '    if (!SIM_GUI_State && aEvent->type == SDL_FINGERDOWN && aEvent->tfinger.x < 0.19f &&')
+edit(gui, 'bool SIM_GUI_IsGameLogicPaused(void)\n{\n    return s_pauseGameLogic;', '''bool SIM_GUI_AndroidMenuOpen(void) { return SIM_GUI_State; }
+
+bool SIM_GUI_IsGameLogicPaused(void)
+{
+#ifdef SDK_BUILD_ANDROID
+    return s_pauseGameLogic || SIM_GUI_State;
+#else
+    return s_pauseGameLogic;
+#endif''')
+edit(ntr / 'include/simulator/gui.h', 'void SIM_GUI_AndroidTouchMain(void);',
+     'void SIM_GUI_AndroidTouchMain(void);\nbool SIM_GUI_AndroidMenuOpen(void);')
+edit(main, '    SIM_GUI_ProcessEvent(&Event);\n    if (Event.type == SDL_WINDOWEVENT)', '''    SIM_GUI_ProcessEvent(&Event);
+#ifdef SDK_BUILD_ANDROID
+    if (SIM_GUI_AndroidMenuOpen()) {
+      isMouseDown = 0;
+      s_tpData.touch = 0;
+      s_reg_PAD_KEYINPUT |= 0x3ff;
+      *(vu16 *)HW_BUTTON_XY_BUF |= 0x0c00;
+      if (Event.type == SDL_KEYDOWN && SIM_Pad_IsListening() && !Event.key.repeat)
+        SIM_GUI_HandleKeyDown(Event.key.keysym.sym);
+      continue;
+    }
+#endif
+    if (Event.type == SDL_WINDOWEVENT)''')
 
 # A second ABI is used only for an automated Android emulator boot test.
 native = root / 'tools/android/build-native.sh'
