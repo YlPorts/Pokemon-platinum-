@@ -277,6 +277,7 @@ public final class LauncherActivity extends Activity {
                     throw new IOException("no se pudo actualizar la importación anterior");
                 }
                 mergeFiles(staging, gameDir);
+                restoreRuntimeHeader();
                 if (!marker.createNewFile() && !marker.isFile()) {
                     throw new IOException("no se pudo finalizar la importación");
                 }
@@ -366,11 +367,28 @@ public final class LauncherActivity extends Activity {
         }
         File marker = new File(gameDir, ".android_assets_installed");
         if (marker.isFile()) {
+            restoreRuntimeHeader();
             return;
         }
         copyAssetDirectory("");
+        restoreRuntimeHeader();
         if (!marker.createNewFile() && !marker.isFile()) {
             throw new IOException("no se pudo registrar la instalación");
+        }
+    }
+
+    private void restoreRuntimeHeader() throws IOException {
+        File header = new File(gameDir, "header.bin");
+        File temporary = new File(gameDir, "header.bin.new");
+        try (InputStream input = getAssets().open("header.bin");
+             OutputStream output = new FileOutputStream(temporary)) {
+            copy(input, output);
+        }
+        if (header.exists() && !header.delete()) {
+            throw new IOException("no se pudo reparar la cabecera del juego");
+        }
+        if (!temporary.renameTo(header)) {
+            throw new IOException("no se pudo instalar la cabecera del juego");
         }
     }
 
