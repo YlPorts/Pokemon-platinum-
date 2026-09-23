@@ -21,12 +21,13 @@ adb shell am start -n "$PACKAGE/.LauncherActivity"
 sleep 8
 adb shell uiautomator dump /sdcard/launcher.xml
 adb pull /sdcard/launcher.xml /tmp/launcher.xml
+cp /tmp/launcher.xml smoke-results/launcher.xml
 python3 - <<'PY' > /tmp/platinum-tap.sh
 import re
 import xml.etree.ElementTree as ET
 root = ET.parse('/tmp/launcher.xml')
 for node in root.iter('node'):
-    if node.get('text') == 'Iniciar juego':
+    if node.get('text', '').casefold() == 'iniciar juego' and node.get('enabled') == 'true':
         bounds = list(map(int, re.findall(r'\d+', node.get('bounds'))))
         print('adb shell input tap', (bounds[0]+bounds[2])//2, (bounds[1]+bounds[3])//2)
         break

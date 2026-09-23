@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '.github/workflows/android-runtime-validation.yml'
+      - 'android/tests/android_smoke.sh'
   workflow_dispatch:
 permissions:
   contents: read
