@@ -144,9 +144,9 @@ final class NdsRomExtractor {
             if (!outputDirectory.isDirectory() && !outputDirectory.mkdirs()) {
                 throw new IOException("no se pudo preparar la carpeta de extracción");
             }
-            try (FileOutputStream output = new FileOutputStream(new File(outputDirectory, "header.bin"))) {
-                output.write(header);
-            }
+            // The native PC port uses its own synthetic header.bin. A retail
+            // header has nonzero FAT/FNT offsets, which makes its 32-bit ROM
+            // table loader dereference invalid addresses on Android arm64.
             Set<String> paths = new HashSet<>();
             long totalBytes = 0;
             byte[] buffer = new byte[64 * 1024];
