@@ -148,3 +148,9 @@ if [[ "$ABI" == "x86_64" ]]; then
 fi''')
 edit(native, "cpu_family = 'aarch64'\ncpu = 'aarch64'",
      "cpu_family = '$CPU_FAMILY'\ncpu = '$CPU_FAMILY'")
+edit(native, '[properties]\nneeds_exe_wrapper',
+     "c_link_args = ['-Wl,-z,max-page-size=16384']\ncpp_link_args = ['-Wl,-z,max-page-size=16384']\n\n[properties]\nneeds_exe_wrapper")
+edit(native, '-DANDROID_ABI="$ABI" -DANDROID_PLATFORM="android-$API"',
+     '-DANDROID_ABI="$ABI" -DANDROID_PLATFORM="android-$API" -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON', 2)
+edit(root / 'meson.build', "shared_args = ['-DPOKEPLATINUM_GENERATED_ENUM', '-g']",
+     "shared_args = ['-DPOKEPLATINUM_GENERATED_ENUM', '-g']\nif build_target == 'android'\n    shared_args += ['-O2', '-fno-strict-aliasing']\nendif")

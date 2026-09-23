@@ -17,3 +17,5 @@ with zipfile.ZipFile('Pokemon-Platinum-Android-v0.3.0-source.zip', 'w', zipfile.
     for file in Path('android').rglob('*'):
         if file.is_file() and not '__pycache__' in file.parts:
             archive.write(file, Path('pokeplatinum-android/android-port-repair') / file.relative_to('android'))
+
+    archive.write('android/PORT_ANDROID.md', 'pokeplatinum-android/ANDROID_NOTES.md')

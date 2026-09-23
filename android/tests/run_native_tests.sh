@@ -7,6 +7,9 @@ mkdir -p "$BUILD"
 NTR="$ROOT/subprojects/libntr"
 NNS="$ROOT/subprojects/libntrsystem"
 mkdir -p "$BUILD/include/nitro/fx"
+if [[ -d "$ROOT/third_party/SDL/include" ]]; then
+    ln -sfn "$ROOT/third_party/SDL/include" "$BUILD/include/SDL2"
+fi
 python3 "$NTR/gen/nitro/fx/gen_fx_const.py" "$NTR/gen/nitro/fx/fx_const.csv" "$BUILD/include/nitro/fx/fx_const.h"
 SOURCES=("$TEST_DIR/native_runtime_test.c"
     "$NNS/libraries/snd/src/heap.c" "$NNS/libraries/snd/src/sndarc.c"
