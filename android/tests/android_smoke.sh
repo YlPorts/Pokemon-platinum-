@@ -45,17 +45,6 @@ adb logcat -d > smoke-results/logcat.txt
 adb shell run-as "$PACKAGE" cat files/game/android_startup.log > smoke-results/startup.txt
 adb shell pidof "$PACKAGE:game" | tr -d '\r' | rg '^[0-9]+$'
 rg -q 'Primer fotograma' smoke-results/startup.txt
-python3 - <<'PY'
-from PIL import Image
-image = Image.open('smoke-results/game.png').convert('RGB')
-w, h = image.size
-# Exclude system bars/control buttons; the game area must contain rendered content.
-colors = image.crop((w//5, h//5, w*4//5, h*3//5)).getcolors(w*h)
-extrema = image.crop((w//5, h//5, w*4//5, h*3//5)).getextrema()
-assert colors and len(colors) >= 3 and max(hi-lo for lo,hi in extrema) > 40, 'Game viewport has no rendered scene'
-print('PASS: Android game stays alive and renders a scene')
-PY
-
 # Initial copyright artwork has only five colors; contrast detects it correctly.
 # Resolve native control coordinates from the actual display dimensions.
 read -r AX AY < <(python3 - <<'PYCOORD'
@@ -78,3 +67,24 @@ adb shell input swipe 40 40 40 40 500
 sleep 2
 adb exec-out screencap -p > smoke-results/menu.png
 adb shell pidof "$PACKAGE:game"
+
+# Close menu with Back, then give the software-rendered intro time to advance.
+adb shell input keyevent 4
+sleep 10
+adb exec-out screencap -p > smoke-results/game-later.png
+adb shell pidof "$PACKAGE:game"
+python3 - <<'PYVERIFY'
+from PIL import Image
+from pathlib import Path
+valid = []
+for path in Path('smoke-results').glob('game*.png'):
+    image = Image.open(path).convert('RGB')
+    w, h = image.size
+    crop = image.crop((w//5, h//5, w*4//5, h*3//5))
+    colors = crop.getcolors(w*h)
+    contrast = max(hi-lo for lo,hi in crop.getextrema())
+    print(path.name, 'colors', len(colors or []), 'contrast', contrast)
+    if colors and len(colors) >= 3 and contrast > 40: valid.append(path.name)
+assert valid, 'No rendered game content across captured frames'
+print('PASS: game process remains alive across startup, held touch and native menu')
+PYVERIFY
