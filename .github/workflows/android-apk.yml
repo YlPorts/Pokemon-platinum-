@@ -52,6 +52,17 @@ jobs:
             _source/pokeplatinum-pcport-source/subprojects/libntr/libraries/sim/meson.build
           sed -i "s/if (build_target != 'arm')/if (build_target != 'arm' and meson.get_external_property('sdl2_lib_dir', '') != '')/" \
             _source/pokeplatinum-pcport-source/subprojects/libntr/libraries/meson.build
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('_source/pokeplatinum-pcport-source')
+          for base in ('lib', 'subprojects/libntr/libraries'):
+              for path in (root / base).rglob('meson.build'):
+                  source = path.read_text()
+                  source = source.replace("pic: false", "pic: (build_target == 'android')")
+                  source = source.replace("pic: build_target == 'nx'", "pic: (build_target == 'nx' or build_target == 'android')")
+                  source = source.replace("pic: (build_target == 'nx')", "pic: (build_target == 'nx' or build_target == 'android')")
+                  path.write_text(source)
+          PY
       - name: Restore omitted source assets
         run: |
           upstream='https://raw.githubusercontent.com/pret/pokeplatinum/c248fb3f8cc9934ded800e489567c5c0eeee92eb'
