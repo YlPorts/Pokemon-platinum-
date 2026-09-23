@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'pokeplatinum-android-source.zip.t0.002'
+      - 'assemble-source-bundle.py'
   workflow_dispatch:
 
 permissions:
