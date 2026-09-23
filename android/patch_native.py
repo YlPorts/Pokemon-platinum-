@@ -157,7 +157,7 @@ for old, new in (
     replace(game, old, new)
 
 sound = root / "src/sound_system.c"
-replace(sound, '#include "sound_system.h"', '#include "sound_system.h"\n\n' + stage_macro)
+replace(sound, '#include "sound_system.h"', '#include "sound_system.h"\n#include <stdlib.h>\n\n' + stage_macro)
 replace(sound, "    NNS_SndInit();\n\n    SoundSystem_InitMic();",
         """    ANDROID_STAGE("Sonido: inicializar motor");
     NNS_SndInit();
@@ -173,8 +173,17 @@ replace(sound, "    SoundSystem_InitHeapStates(soundSys);\n\n    soundSys->heap 
 replace(sound, '    NNS_SndArcInit(&soundSys->arc, "data/sound/pl_sound_data.sdat", soundSys->heap, 0);\n    NNS_SndArcPlayerSetup(soundSys->heap);',
         """    ANDROID_STAGE("Sonido: abrir archivo SDAT");
     NNS_SndArcInit(&soundSys->arc, "data/sound/pl_sound_data.sdat", soundSys->heap, 0);
+#ifdef SDK_BUILD_ANDROID
+    if (NNS_SndArcGetCurrent() != &soundSys->arc || soundSys->arc.info == NULL) {
+        ANDROID_STAGE("Sonido: archivo SDAT no cargado");
+        abort();
+    }
+#endif
     ANDROID_STAGE("Sonido: preparar reproductores");
-    NNS_SndArcPlayerSetup(soundSys->heap);""")
+    if (!NNS_SndArcPlayerSetup(soundSys->heap)) {
+        ANDROID_STAGE("Sonido: sin memoria para reproductores");
+        abort();
+    }""")
 replace(sound, "    SoundSystem_InitSoundHandles(soundSys);\n    SoundSystem_LoadPersistentGroup(soundSys);",
         """    ANDROID_STAGE("Sonido: preparar canales");
     SoundSystem_InitSoundHandles(soundSys);
@@ -345,3 +354,37 @@ replace(gui_config,
 replace(gui_config,
         'igCombo_Str_arr("Layout", &sScreenLayout, ScreenLayoutStrings, 3, 3)',
         'igCombo_Str_arr("Layout", &sScreenLayout, ScreenLayoutStrings, 4, 4)')
+
+# Identify the exact player and heap allocation that fails on physical ARM64.
+arc_player = root / "subprojects/libntrsystem/libraries/snd/src/sndarc_player.c"
+replace(arc_player, '#include <nnsys/snd/sndarc_player.h>',
+        '''#include <nnsys/snd/sndarc_player.h>
+#ifdef SDK_BUILD_ANDROID
+#include <stdio.h>
+extern void SIM_AndroidStartupStage(const char *stage);
+static void AndroidPlayerStage(int number, const char *phase) {
+    char stage[96];
+    snprintf(stage, sizeof(stage), "Sonido: reproductor %d: %s", number, phase);
+    SIM_AndroidStartupStage(stage);
+}
+#define ANDROID_PLAYER_STAGE(number, phase) AndroidPlayerStage(number, phase)
+#else
+#define ANDROID_PLAYER_STAGE(number, phase) ((void)0)
+#endif''')
+replace(arc_player,
+        '        playerInfo = NNS_SndArcGetPlayerInfo(playerNo);\n        if (playerInfo == NULL) continue;',
+        '''        ANDROID_PLAYER_STAGE(playerNo, "leer datos");
+        playerInfo = NNS_SndArcGetPlayerInfo(playerNo);
+        if (playerInfo == NULL) continue;
+        ANDROID_PLAYER_STAGE(playerNo, "configurar canales");''')
+replace(arc_player,
+        '                if (!NNS_SndPlayerCreateHeap(playerNo, heap, playerInfo->heapSize)) {\n                    return FALSE;\n                }',
+        '''                ANDROID_PLAYER_STAGE(playerNo, "crear memoria");
+                if (!NNS_SndPlayerCreateHeap(playerNo, heap, playerInfo->heapSize)) {
+                    ANDROID_PLAYER_STAGE(playerNo, "sin memoria");
+                    return FALSE;
+                }
+                ANDROID_PLAYER_STAGE(playerNo, "memoria lista");''')
+replace(arc_player,
+        '    return TRUE;\n}\n\nBOOL NNS_SndArcPlayerStartSeq',
+        '    ANDROID_PLAYER_STAGE(NNS_SND_PLAYER_NUM, "todos listos");\n    return TRUE;\n}\n\nBOOL NNS_SndArcPlayerStartSeq')
