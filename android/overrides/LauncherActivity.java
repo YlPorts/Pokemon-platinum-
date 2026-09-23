@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 public final class LauncherActivity extends Activity {
     private static final int REQUEST_IMPORT_ROM = 42;
     private static final String IMPORT_MARKER = ".root_imported";
+    private static final String ASSET_VERSION_MARKER = ".android_assets_v027";
     private static final long MAX_ROM_BYTES = 512L * 1024 * 1024;
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -276,7 +277,7 @@ public final class LauncherActivity extends Activity {
                 if (marker.exists() && !marker.delete()) {
                     throw new IOException("no se pudo actualizar la importación anterior");
                 }
-                mergeFiles(staging, gameDir);
+                mergeFiles(staging, gameDir, "");
                 restoreRuntimeHeader();
                 if (!marker.createNewFile() && !marker.isFile()) {
                     throw new IOException("no se pudo finalizar la importación");
@@ -321,7 +322,7 @@ public final class LauncherActivity extends Activity {
         }
     }
 
-    private static void mergeFiles(File source, File destination) throws IOException {
+    private void mergeFiles(File source, File destination, String assetPath) throws IOException {
         if (source.isDirectory()) {
             if (!destination.isDirectory() && !destination.mkdirs()) {
                 throw new IOException("no se pudo crear " + destination.getName());
@@ -331,9 +332,17 @@ public final class LauncherActivity extends Activity {
                 throw new IOException("no se pudo leer la carpeta extraída");
             }
             for (File child : children) {
-                mergeFiles(child, new File(destination, child.getName()));
+                String childPath = assetPath.isEmpty() ? child.getName() : assetPath + "/" + child.getName();
+                mergeFiles(child, new File(destination, child.getName()), childPath);
             }
         } else {
+            // Generated PC-port assets may differ from the retail NitroFS files.
+            // Keep the built version when a ROM contains the same path.
+            try (InputStream bundled = getAssets().open(assetPath)) {
+                return;
+            } catch (FileNotFoundException missing) {
+                // This file only exists in the imported ROM.
+            }
             if (destination.exists() && !destination.delete()) {
                 throw new IOException("no se pudo reemplazar " + destination.getName());
             }
@@ -366,14 +375,20 @@ public final class LauncherActivity extends Activity {
             throw new IOException("no se pudo crear el directorio del juego");
         }
         File marker = new File(gameDir, ".android_assets_installed");
-        if (marker.isFile()) {
+        File currentVersion = new File(gameDir, ASSET_VERSION_MARKER);
+        if (marker.isFile() && currentVersion.isFile()) {
             restoreRuntimeHeader();
             return;
         }
+        // Upgrade old installs too: previous ROM imports replaced some
+        // generated assets with incompatible retail versions.
         copyAssetDirectory("");
         restoreRuntimeHeader();
         if (!marker.createNewFile() && !marker.isFile()) {
             throw new IOException("no se pudo registrar la instalación");
+        }
+        if (!currentVersion.createNewFile() && !currentVersion.isFile()) {
+            throw new IOException("no se pudo registrar la actualización");
         }
     }
 
