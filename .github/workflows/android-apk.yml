@@ -1,0 +1,42 @@
+name: Android APK
+
+on:
+  push:
+    paths:
+      - 'pokeplatinum-android-source.zip.t0.002'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct source
+        run: python3 assemble-source-bundle.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android and native build tools
+        run: |
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build nasm gcc-arm-none-eabi binutils-arm-none-eabi
+          python3 -m pip install --user --break-system-packages 'meson>=1.12'
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Compile APK
+        run: gradle -p _source/pokeplatinum-pcport-source/android assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pokemon-Platinum-Android-debug
+          path: _source/pokeplatinum-pcport-source/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
