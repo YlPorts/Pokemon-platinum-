@@ -44,10 +44,23 @@ def main() -> int:
     finally:
         archive_path.unlink(missing_ok=True)
 
-    project = SOURCE_DIR / "pokeplatinum-pcport-source" / "android" / "build.gradle"
-    if not project.is_file():
-        print("El ZIP no contiene el proyecto Android esperado.", file=sys.stderr)
+    candidates = [
+        path for path in SOURCE_DIR.rglob("android/build.gradle")
+        if (path.parent.parent / "meson.build").is_file()
+    ]
+    if len(candidates) != 1:
+        roots = [str(path.relative_to(SOURCE_DIR)) for path in SOURCE_DIR.iterdir()]
+        print(f"No se encontró un proyecto Android único. Raíz del ZIP: {roots[:20]}", file=sys.stderr)
+        print(f"Candidatos: {candidates[:20]}", file=sys.stderr)
         return 1
+    project = candidates[0]
+    canonical_root = SOURCE_DIR / "pokeplatinum-pcport-source"
+    if project.parent.parent != canonical_root:
+        if canonical_root.exists():
+            print(f"Destino ocupado: {canonical_root}", file=sys.stderr)
+            return 1
+        shutil.move(str(project.parent.parent), str(canonical_root))
+        project = canonical_root / "android" / "build.gradle"
     print(f"Código reconstruido en {project.parent}")
     return 0
 
