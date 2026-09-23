@@ -11,6 +11,8 @@ with zipfile.ZipFile('Pokemon-Platinum-Android-v0.3.0-source.zip', 'w', zipfile.
         relative = file.relative_to(root)
         if not file.is_file() or excluded.intersection(relative.parts):
             continue
+        if file.name == 'gradle-wrapper.jar':
+            continue
         if relative.parts[:2] == ('third_party', 'android'):
             continue
         archive.write(file, Path('pokeplatinum-android') / relative)

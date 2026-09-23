@@ -3,12 +3,19 @@ set -euo pipefail
 ROOT="$(cd "$1" && pwd)"
 APK="$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
 PACKAGE=org.pokeplatinum.android
+mkdir -p smoke-results
+capture() {
+    adb exec-out screencap -p > smoke-results/game.png || true
+    adb logcat -d > smoke-results/logcat.txt || true
+    adb shell run-as "$PACKAGE" cat files/game/android_startup.log > smoke-results/startup.txt || true
+}
+trap capture EXIT
 adb install -r "$APK"
 # Seed the reproducible generated resource fixture into the debug app sandbox.
 tar -C "$ROOT/build_android/android-assets" -cf /tmp/platinum-assets.tar .
 adb push /tmp/platinum-assets.tar /data/local/tmp/platinum-assets.tar
 adb shell run-as "$PACKAGE" mkdir -p files/game
-adb shell run-as "$PACKAGE" tar -xf /data/local/tmp/platinum-assets.tar -C files/game
+adb shell run-as "$PACKAGE" tar --no-same-owner -xf /data/local/tmp/platinum-assets.tar -C files/game
 adb shell run-as "$PACKAGE" touch files/game/.root_imported files/game/.android_assets_v027
 adb shell am start -n "$PACKAGE/.LauncherActivity"
 sleep 8

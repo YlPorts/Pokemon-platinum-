@@ -31,7 +31,7 @@ jobs:
         run: |
           unzip -q Pokemon-Platinum-Android-v0.3.0-source.zip
           # The port uses installed Gradle. SDL's unrelated sample wrapper is unused.
-          rm pokeplatinum-android/third_party/SDL/android-project/gradle/wrapper/gradle-wrapper.jar
+          rm -f pokeplatinum-android/third_party/SDL/android-project/gradle/wrapper/gradle-wrapper.jar
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -47,8 +47,19 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;27.2.12479018' 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
+      - uses: actions/cache/restore@v4
+        id: native-cache
+        with:
+          path: pokeplatinum-android
+          key: platinum-emulator-source-35926190320-v1
       - name: Compile emulator ABI
+        if: steps.native-cache.outputs.cache-hit != 'true' 
         run: gradle -p pokeplatinum-android/android assembleDebug -PandroidAbi=x86_64 --stacktrace
+      - uses: actions/cache/save@v4
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        with:
+          path: pokeplatinum-android
+          key: platinum-emulator-source-35926190320-v1
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
