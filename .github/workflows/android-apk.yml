@@ -31,7 +31,7 @@ jobs:
           yes | "$SDK_MANAGER" --licenses >/dev/null || true
           "$SDK_MANAGER" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build nasm gcc-arm-none-eabi binutils-arm-none-eabi libpng-dev pkg-config
+          sudo apt-get install -y cmake ninja-build nasm gcc-arm-none-eabi binutils-arm-none-eabi libpng-dev libsdl2-dev libenet-dev pkg-config
           python3 -m pip install --user --break-system-packages 'meson>=1.12'
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
@@ -47,6 +47,8 @@ jobs:
           sed -i 's|$TOOLCHAIN/build/cmake/android.toolchain.cmake|$NDK/build/cmake/android.toolchain.cmake|g' \
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's|ANDROID_API_LEVEL:-23|ANDROID_API_LEVEL:-24|' \
+            _source/pokeplatinum-pcport-source/tools/android/build-native.sh
+          sed -i 's|ANDROID_CC="$ANDROID_CC" meson compile -C "$BUILD_ROOT"|ANDROID_CC="$ANDROID_CC" ninja -C "$BUILD_ROOT" -k 20|' \
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's/minSdk 23/minSdk 24/' \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
