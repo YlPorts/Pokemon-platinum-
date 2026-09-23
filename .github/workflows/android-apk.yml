@@ -5,6 +5,8 @@ on:
     paths:
       - 'pokeplatinum-android-source.zip.t0.002'
       - 'assemble-source-bundle.py'
+      - 'android/overrides/**'
+      - 'android/tests/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
@@ -23,6 +25,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Verify ROM extraction
+        run: |
+          mkdir -p /tmp/pokemon-rom-test
+          javac -encoding UTF-8 -d /tmp/pokemon-rom-test \
+            android/overrides/NdsRomExtractor.java android/tests/NdsRomExtractorTest.java
+          java -cp /tmp/pokemon-rom-test org.pokeplatinum.android.NdsRomExtractorTest
       - name: Install Android and native build tools
         run: |
           ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
@@ -52,6 +60,10 @@ jobs:
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's/minSdk 23/minSdk 24/' \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
+          sed -i "s/versionCode 1/versionCode 2/; s/versionName '0.1.0'/versionName '0.2.0'/" \
+            _source/pokeplatinum-pcport-source/android/app/build.gradle
+          cp android/overrides/*.java \
+            _source/pokeplatinum-pcport-source/android/app/src/main/java/org/pokeplatinum/android/
           sed -i "s|c_args = \['-fPIC'\]|c_args = ['-fPIC', '-I\$SDL_INCLUDE_DIR', '-I\$ENET_PREFIX/include']|; s|cpp_args = \['-fPIC'\]|cpp_args = ['-fPIC', '-I\$SDL_INCLUDE_DIR', '-I\$ENET_PREFIX/include']|" \
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i '/^#define NITRO_H_$/a\
