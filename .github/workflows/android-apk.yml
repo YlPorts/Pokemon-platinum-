@@ -61,7 +61,7 @@ jobs:
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's/minSdk 23/minSdk 24/' \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
-          sed -i "s/versionCode 1/versionCode 10/; s/versionName '0.1.0'/versionName '0.2.8'/" \
+          sed -i "s/versionCode 1/versionCode 11/; s/versionName '0.1.0'/versionName '0.2.9'/" \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
           cp android/overrides/*.java \
             _source/pokeplatinum-pcport-source/android/app/src/main/java/org/pokeplatinum/android/
