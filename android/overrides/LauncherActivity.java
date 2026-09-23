@@ -7,14 +7,20 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -29,6 +35,13 @@ public final class LauncherActivity extends Activity {
     private Button playButton;
     private File gameDir;
     private boolean bundledAssetsReady;
+    private boolean returnedFromGame;
+    private Spinner layoutChoice;
+    private Spinner fpsChoice;
+    private Spinner scaleChoice;
+    private Spinner syncChoice;
+    private static final String[] LAYOUT_VALUES = {"vertical", "horizontal", "widescreen", "large"};
+    private static final String[] FPS_VALUES = {"30", "60", "90", "120", "0"};
 
     @Override
     protected void onCreate(Bundle state) {
@@ -85,8 +98,26 @@ public final class LauncherActivity extends Activity {
         playButton = new Button(this);
         playButton.setText("Iniciar juego");
         playButton.setEnabled(false);
-        playButton.setOnClickListener(view -> startActivity(new Intent(this, GameActivity.class)));
+        playButton.setOnClickListener(view -> launchGame());
         content.addView(playButton, buttonParams);
+
+        TextView options = new TextView(this);
+        options.setText("Opciones de pantalla y rendimiento");
+        options.setTextSize(19);
+        content.addView(options, buttonParams);
+
+        layoutChoice = addChoice(content, "Pantallas", new String[]{
+                "Dos verticales", "Dos horizontales", "Principal panorámica", "Principal grande + secundaria"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("layout", 0));
+        fpsChoice = addChoice(content, "Límite de FPS", new String[]{
+                "30", "60", "90", "120", "Sin límite"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("fps", 1));
+        scaleChoice = addChoice(content, "Resolución interna 3D", new String[]{
+                "1× (rápida)", "2× (recomendada)", "3×", "4×"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("scale", 1));
+        syncChoice = addChoice(content, "Sincronización vertical", new String[]{
+                "Activada", "Desactivada"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("sync", 0));
 
         status = new TextView(this);
         status.setTextSize(14);
@@ -100,17 +131,111 @@ public final class LauncherActivity extends Activity {
         setContentView(scroll);
     }
 
+    private Spinner addChoice(LinearLayout parent, String label, String[] values, int initial) {
+        TextView caption = new TextView(this);
+        caption.setText(label);
+        caption.setTextSize(15);
+        parent.addView(caption);
+        Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_dropdown_item, values);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(Math.max(0, Math.min(initial, values.length - 1)));
+        parent.addView(spinner);
+        return spinner;
+    }
+
+    private void launchGame() {
+        try {
+            saveOptions();
+            getSharedPreferences("display_options", MODE_PRIVATE).edit()
+                    .putInt("layout", layoutChoice.getSelectedItemPosition())
+                    .putInt("fps", fpsChoice.getSelectedItemPosition())
+                    .putInt("scale", scaleChoice.getSelectedItemPosition())
+                    .putInt("sync", syncChoice.getSelectedItemPosition()).apply();
+            returnedFromGame = true;
+            startActivity(new Intent(this, GameActivity.class));
+        } catch (IOException exception) {
+            status.setText("No se pudieron guardar las opciones: " + exception.getMessage());
+        }
+    }
+
+    private void saveOptions() throws IOException {
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("ScreenLayout", LAYOUT_VALUES[layoutChoice.getSelectedItemPosition()]);
+        values.put("InternalResolutionScale", String.valueOf(scaleChoice.getSelectedItemPosition() + 1));
+        values.put("WindowWidth", "0");
+        values.put("WindowHeight", "0");
+        values.put("VsyncInterval", syncChoice.getSelectedItemPosition() == 0 ? "1" : "0");
+        int fpsIndex = fpsChoice.getSelectedItemPosition();
+        values.put("CapFrameRate", fpsIndex == 4 ? "false" : "true");
+        values.put("TargetFPS", FPS_VALUES[fpsIndex == 4 ? 1 : fpsIndex]);
+
+        File config = new File(gameDir, "sim_config.ini");
+        String previous = "";
+        if (config.isFile()) {
+            try (InputStream input = new java.io.FileInputStream(config);
+                 ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+                copy(input, buffer);
+                previous = buffer.toString("UTF-8");
+            }
+        }
+        StringBuilder merged = new StringBuilder();
+        boolean inGeneral = false;
+        for (String line : previous.split("\\r?\\n")) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                inGeneral = "[General]".equalsIgnoreCase(trimmed);
+            }
+            int equals = line.indexOf('=');
+            if (inGeneral && equals > 0 && values.containsKey(line.substring(0, equals).trim())) {
+                continue;
+            }
+            if (!line.isEmpty()) merged.append(line).append('\n');
+        }
+        if (merged.indexOf("[General]") < 0) merged.insert(0, "[General]\n");
+        int generalEnd = merged.indexOf("\n", merged.indexOf("[General]")) + 1;
+        StringBuilder overrides = new StringBuilder();
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            overrides.append(entry.getKey()).append('=').append(entry.getValue()).append('\n');
+        }
+        merged.insert(generalEnd, overrides);
+        File temporary = new File(gameDir, "sim_config.ini.new");
+        try (OutputStream output = new FileOutputStream(temporary)) {
+            output.write(merged.toString().getBytes(StandardCharsets.UTF_8));
+        }
+        if (config.exists() && !config.delete()) throw new IOException("configuración anterior bloqueada");
+        if (!temporary.renameTo(config)) throw new IOException("no se pudo activar la configuración");
+    }
+
     private void setBusy(boolean busy, String message) {
         status.setText(message);
         importButton.setEnabled(!busy && bundledAssetsReady);
         playButton.setEnabled(!busy && bundledAssetsReady && new File(gameDir, IMPORT_MARKER).isFile());
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (returnedFromGame && bundledAssetsReady) updateReadyState();
+    }
+
     private void updateReadyState() {
         boolean imported = new File(gameDir, IMPORT_MARKER).isFile();
-        status.setText(imported
+        String message = imported
                 ? "ROM importada. Ya puedes jugar."
-                : "Selecciona tu archivo Pokémon Platinum USA (.nds).");
+                : "Selecciona tu archivo Pokémon Platinum USA (.nds).";
+        File startup = new File(gameDir, "android_startup.txt");
+        if (imported && startup.isFile()) {
+            try (InputStream input = new java.io.FileInputStream(startup);
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                copy(input, output);
+                message += "\nÚltima etapa de inicio: " + output.toString("UTF-8").trim();
+            } catch (IOException ignored) {
+                // Startup diagnostics are optional.
+            }
+        }
+        status.setText(message);
         importButton.setEnabled(true);
         playButton.setEnabled(imported);
     }
