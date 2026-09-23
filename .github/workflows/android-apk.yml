@@ -46,6 +46,10 @@ jobs:
           done
           sed -i 's|$TOOLCHAIN/build/cmake/android.toolchain.cmake|$NDK/build/cmake/android.toolchain.cmake|g' \
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
+          sed -i 's|ANDROID_API_LEVEL:-23|ANDROID_API_LEVEL:-24|' \
+            _source/pokeplatinum-pcport-source/tools/android/build-native.sh
+          sed -i 's/minSdk 23/minSdk 24/' \
+            _source/pokeplatinum-pcport-source/android/app/build.gradle
           sed -i "s|c_args = \['-fPIC'\]|c_args = ['-fPIC', '-I\$SDL_INCLUDE_DIR', '-I\$ENET_PREFIX/include']|; s|cpp_args = \['-fPIC'\]|cpp_args = ['-fPIC', '-I\$SDL_INCLUDE_DIR', '-I\$ENET_PREFIX/include']|" \
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i '/^#define NITRO_H_$/a\
