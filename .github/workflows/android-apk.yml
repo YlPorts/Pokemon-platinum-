@@ -52,24 +52,18 @@ jobs:
             _source/pokeplatinum-pcport-source/subprojects/libntr/libraries/sim/meson.build
           sed -i "s/if (build_target != 'arm')/if (build_target != 'arm' and meson.get_external_property('sdl2_lib_dir', '') != '')/" \
             _source/pokeplatinum-pcport-source/subprojects/libntr/libraries/meson.build
-          sed -i "/^subdir('build_model')$/d" \
-            _source/pokeplatinum-pcport-source/res/prebuilt/fielddata/meson.build
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('_source/pokeplatinum-pcport-source/tools/scripts/copy_android_assets.py')
-          source = path.read_text()
-          original = '            copy_file(build_dir / row[0], output_dir / relative_dest)'
-          replacement = (
-              '            source_file = build_dir / row[0]\n'
-              "            if row[0] == 'res/prebuilt/fielddata/build_model/build_model_matshp.dat' and not source_file.is_file():\n"
-              "                # Supplied by the user's imported root folder at runtime.\n"
-              '                continue\n'
-              '            copy_file(source_file, output_dir / relative_dest)'
-          )
-          if source.count(original) != 1:
-              raise SystemExit('Unexpected Android asset script version')
-          path.write_text(source.replace(original, replacement))
-          PY
+      - name: Restore omitted source assets
+        run: |
+          upstream='https://raw.githubusercontent.com/pret/pokeplatinum/c248fb3f8cc9934ded800e489567c5c0eeee92eb'
+          root='_source/pokeplatinum-pcport-source'
+          model_dir="$root/res/prebuilt/fielddata/build_model"
+          mkdir -p "$model_dir"
+          curl -fsSL --retry 3 "$upstream/res/prebuilt/fielddata/build_model/meson.build" -o "$model_dir/meson.build"
+          curl -fsSL --retry 3 "$upstream/res/prebuilt/fielddata/build_model/build_model_matshp.dat" -o "$model_dir/build_model_matshp.dat"
+          curl -fsSL --retry 3 "$upstream/res/graphics/field_sprites/frame_sequences/save.bin" -o "$root/res/graphics/field_sprites/frame_sequences/save.bin"
+          test "$(git hash-object "$model_dir/meson.build")" = 5b48e4fb3257cc74a8323a4db9e64f6eba3b7a30
+          test "$(git hash-object "$model_dir/build_model_matshp.dat")" = 5fa5592c72147780acc22c27b78e5c5b6f9f8521
+          test "$(git hash-object "$root/res/graphics/field_sprites/frame_sequences/save.bin")" = 428be0d81e3f0831dcf6ff8d671a6d05b0814abc
       - name: Compile APK
         run: gradle -p _source/pokeplatinum-pcport-source/android assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
