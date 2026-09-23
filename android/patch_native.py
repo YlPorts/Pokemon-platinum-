@@ -45,6 +45,21 @@ replace(main,
     return nullptr;
   }
   SIM_Audio_Init(44100);""")
+
+# The SDL callback uses DS sound globals while NitroMain initializes them.
+# Do not let that callback run concurrently with the initial sound setup.
+audio = root / "subprojects/libntr/libraries/sim/src/sim_audio.cpp"
+replace(audio, "    SDL_PauseAudio(0);\n}",
+        """#ifndef SDK_BUILD_ANDROID
+    SDL_PauseAudio(0);
+#endif
+}
+
+#ifdef SDK_BUILD_ANDROID
+extern \"C\" void SIM_AndroidStartAudio(void) {
+    SDL_PauseAudio(0);
+}
+#endif""")
 replace(main,
         "  context = SDL_GL_CreateContext(window);\n\n#ifndef SDK_BUILD_ANDROID",
         """  if (!window) {
@@ -140,6 +155,51 @@ for old, new in (
     ("    gIgnoreCartridgeForWake = FALSE;\n\n    while (TRUE) {", '    gIgnoreCartridgeForWake = FALSE;\n\n    ANDROID_STAGE("Primer fotograma");\n    while (TRUE) {'),
 ):
     replace(game, old, new)
+
+sound = root / "src/sound_system.c"
+replace(sound, '#include "sound_system.h"', '#include "sound_system.h"\n\n' + stage_macro)
+replace(sound, "    NNS_SndInit();\n\n    SoundSystem_InitMic();",
+        """    ANDROID_STAGE("Sonido: inicializar motor");
+    NNS_SndInit();
+
+    ANDROID_STAGE("Sonido: micrófono");
+    SoundSystem_InitMic();""")
+replace(sound, "    SoundSystem_InitHeapStates(soundSys);\n\n    soundSys->heap = NNS_SndHeapCreate(&soundSys->heapBuffer, sizeof(soundSys->heapBuffer));",
+        """    ANDROID_STAGE("Sonido: preparar memoria");
+    SoundSystem_InitHeapStates(soundSys);
+
+    soundSys->heap = NNS_SndHeapCreate(&soundSys->heapBuffer, sizeof(soundSys->heapBuffer));
+    ANDROID_STAGE(soundSys->heap ? "Sonido: memoria lista" : "Sonido: sin memoria");""")
+replace(sound, '    NNS_SndArcInit(&soundSys->arc, "data/sound/pl_sound_data.sdat", soundSys->heap, 0);\n    NNS_SndArcPlayerSetup(soundSys->heap);',
+        """    ANDROID_STAGE("Sonido: abrir archivo SDAT");
+    NNS_SndArcInit(&soundSys->arc, "data/sound/pl_sound_data.sdat", soundSys->heap, 0);
+    ANDROID_STAGE("Sonido: preparar reproductores");
+    NNS_SndArcPlayerSetup(soundSys->heap);""")
+replace(sound, "    SoundSystem_InitSoundHandles(soundSys);\n    SoundSystem_LoadPersistentGroup(soundSys);",
+        """    ANDROID_STAGE("Sonido: preparar canales");
+    SoundSystem_InitSoundHandles(soundSys);
+    ANDROID_STAGE("Sonido: cargar sonidos comunes");
+    SoundSystem_LoadPersistentGroup(soundSys);
+    ANDROID_STAGE("Sonido: sonidos comunes listos");""")
+replace(sound, "    Sound_SetPlaybackMode(options->soundMode);\n}",
+        """    Sound_SetPlaybackMode(options->soundMode);
+#ifdef SDK_BUILD_ANDROID
+    // The SDL mixer must start only after the sound data and channels exist.
+    extern void SIM_AndroidStartAudio(void);
+    SIM_AndroidStartAudio();
+#endif
+    ANDROID_STAGE("Sonido: listo");
+}""")
+
+# libntrsystem is cloned by CI. Sound heap callbacks accept 64-bit user data
+# on SDK_PORT; preserve the entire arc pointer on Android arm64.
+arc = root / "subprojects/libntrsystem/libraries/snd/src/sndarc.c"
+replace(arc, 'InfoDisposeCallback, (u32)arc, 0',
+        'InfoDisposeCallback, (u64)arc, 0')
+replace(arc, 'FatDisposeCallback, (u32)arc, 0',
+        'FatDisposeCallback, (u64)arc, 0')
+replace(arc, 'SymbolDisposeCallback, (u32)arc, 0',
+        'SymbolDisposeCallback, (u64)arc, 0')
 
 system = root / "src/system.c"
 replace(system, "#define MAIN_TASK_MAX", stage_macro + "\n#define MAIN_TASK_MAX")
