@@ -40,6 +40,10 @@ jobs:
           gradle-version: '8.9'
       - name: Correct NDK toolchain path in bundled source
         run: |
+          root='_source/pokeplatinum-pcport-source'
+          for project in libntrsystem libntrwifi libntrdwc libvct; do
+            git clone --depth 1 "https://github.com/cybervisi0n/$project.git" "$root/subprojects/$project"
+          done
           sed -i 's|$TOOLCHAIN/build/cmake/android.toolchain.cmake|$NDK/build/cmake/android.toolchain.cmake|g' \
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i "s/\['c', 'cpp', 'nasm'\]/['c', 'cpp']/" \
@@ -55,7 +59,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           root = Path('_source/pokeplatinum-pcport-source')
-          for base in ('lib', 'subprojects/libntr/libraries'):
+          for base in ('lib', 'subprojects/libntr/libraries', 'subprojects/libntrsystem', 'subprojects/libntrwifi', 'subprojects/libntrdwc', 'subprojects/libvct'):
               for path in (root / base).rglob('meson.build'):
                   source = path.read_text()
                   source = source.replace("pic: false", "pic: (build_target == 'android')")
