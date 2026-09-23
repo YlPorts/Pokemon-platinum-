@@ -60,7 +60,7 @@ public final class NdsRomExtractorTest {
         if (NdsRomExtractor.extract(rom, output, null) != 1
                 || !Arrays.equals("HELLO".getBytes(StandardCharsets.US_ASCII),
                         Files.readAllBytes(new File(output, "resource/test.bin").toPath()))
-                || Files.size(new File(output, "header.bin").toPath()) != 0x200) {
+                || new File(output, "header.bin").exists()) {
             throw new AssertionError("NitroFS extraction was incorrect");
         }
         byte[] wrongGame = valid.clone();
