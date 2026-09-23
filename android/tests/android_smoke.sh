@@ -10,6 +10,8 @@ capture() {
     adb shell run-as "$PACKAGE" cat files/game/android_startup.log > smoke-results/startup.txt || true
 }
 trap capture EXIT
+adb shell wm size 540x960
+adb shell wm density 210
 adb install -r "$APK"
 # Seed the reproducible generated resource fixture into the debug app sandbox.
 tar -C "$ROOT/build_android/android-assets" -cf /tmp/platinum-assets.tar .
@@ -49,19 +51,30 @@ image = Image.open('smoke-results/game.png').convert('RGB')
 w, h = image.size
 # Exclude system bars/control buttons; the game area must contain rendered content.
 colors = image.crop((w//5, h//5, w*4//5, h*3//5)).getcolors(w*h)
-assert colors and len(colors) > 20, 'Game viewport has no rendered scene'
+extrema = image.crop((w//5, h//5, w*4//5, h*3//5)).getextrema()
+assert colors and len(colors) >= 3 and max(hi-lo for lo,hi in extrema) > 40, 'Game viewport has no rendered scene'
 print('PASS: Android game stays alive and renders a scene')
 PY
 
+# Initial copyright artwork has only five colors; contrast detects it correctly.
+# Resolve native control coordinates from the actual display dimensions.
+read -r AX AY < <(python3 - <<'PYCOORD'
+from PIL import Image
+w, h = Image.open('smoke-results/game.png').size
+size = w * .145 if w < h else h * .115
+margin = size * .28
+print(round(w - size * .5 - margin), round(h - size * 1.25 - margin))
+PYCOORD
+)
 # Advance using a held A touch and check that the native menu is reachable.
 for press in $(seq 1 6); do
-    adb shell input swipe 958 1680 958 1680 180
+    adb shell input swipe "$AX" "$AY" "$AX" "$AY" 1000
     sleep 1
 done
-sleep 5
+sleep 20
 adb exec-out screencap -p > smoke-results/game-input.png
 adb shell pidof "$PACKAGE:game"
-adb shell input swipe 80 50 80 50 180
+adb shell input swipe 40 40 40 40 500
 sleep 2
 adb exec-out screencap -p > smoke-results/menu.png
 adb shell pidof "$PACKAGE:game"
