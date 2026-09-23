@@ -196,8 +196,8 @@ replace(sound, "    Sound_SetPlaybackMode(options->soundMode);\n}",
 arc = root / "subprojects/libntrsystem/libraries/snd/src/sndarc.c"
 replace(arc, 'InfoDisposeCallback, (u32)arc, 0',
         'InfoDisposeCallback, (u64)arc, 0')
-replace(arc, 'FatDisposeCallback, (u32)arc, 0',
-        'FatDisposeCallback, (u64)arc, 0')
+replace(arc, 'arc->header.fatSize*2, FatDisposeCallback, (u32)arc, 0',
+        'arc->header.fatSize*2, FatDisposeCallback, (u64)arc, 0')
 replace(arc, 'SymbolDisposeCallback, (u32)arc, 0',
         'SymbolDisposeCallback, (u64)arc, 0')
 
