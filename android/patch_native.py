@@ -283,6 +283,16 @@ replace(arc,
         #ifdef SDK_PORT
         arc->fat = (NNSSndArcFat *)NNS_SndHeapAlloc''')
 replace(arc,
+        '''        #ifdef SDK_PORT
+        arc->fat = (NNSSndArcFat *)NNS_SndHeapAlloc(heap, arc->header.fatSize*2, FatDisposeCallback, (u64)arc, 0);''',
+        '''        #ifdef SDK_BUILD_ANDROID
+        // FAT remains valid for the lifetime of the game. The SDK sound
+        // frame heap fails on its second allocation on Android arm64.
+        // Keep this archive index separate from the resettable sound heap.
+        arc->fat = (NNSSndArcFat *)malloc(arc->header.fatSize * 2);
+        #elif defined(SDK_PORT)
+        arc->fat = (NNSSndArcFat *)NNS_SndHeapAlloc(heap, arc->header.fatSize*2, FatDisposeCallback, (u64)arc, 0);''')
+replace(arc,
         '''        if (arc->fat == NULL) return FALSE;
         result = FS_SeekFile''',
         '''        if (arc->fat == NULL) return FALSE;
