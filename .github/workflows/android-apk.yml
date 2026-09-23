@@ -60,7 +60,7 @@ jobs:
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's/minSdk 23/minSdk 24/' \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
-          sed -i "s/versionCode 1/versionCode 3/; s/versionName '0.1.0'/versionName '0.2.1'/" \
+          sed -i "s/versionCode 1/versionCode 4/; s/versionName '0.1.0'/versionName '0.2.2'/" \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
           cp android/overrides/*.java \
             _source/pokeplatinum-pcport-source/android/app/src/main/java/org/pokeplatinum/android/
@@ -140,6 +140,7 @@ jobs:
                   source = source.replace("pic: (build_target == 'nx')", "pic: (build_target == 'nx' or build_target == 'android')")
                   path.write_text(source)
           PY
+          python3 android/patch_native.py "$root"
       - name: Restore omitted source assets
         run: |
           upstream='https://raw.githubusercontent.com/pret/pokeplatinum/c248fb3f8cc9934ded800e489567c5c0eeee92eb'
