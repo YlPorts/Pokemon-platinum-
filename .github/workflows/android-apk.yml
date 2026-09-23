@@ -31,7 +31,7 @@ jobs:
           yes | "$SDK_MANAGER" --licenses >/dev/null || true
           "$SDK_MANAGER" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build nasm gcc-arm-none-eabi binutils-arm-none-eabi
+          sudo apt-get install -y cmake ninja-build nasm gcc-arm-none-eabi binutils-arm-none-eabi libpng-dev pkg-config
           python3 -m pip install --user --break-system-packages 'meson>=1.12'
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
