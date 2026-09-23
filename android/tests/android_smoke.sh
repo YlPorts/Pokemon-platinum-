@@ -7,6 +7,7 @@ mkdir -p smoke-results
 capture() {
     adb exec-out screencap -p > smoke-results/final.png || true
     adb logcat -d > smoke-results/logcat.txt || true
+    adb shell run-as "$PACKAGE" cat files/game/android_runtime.log > smoke-results/runtime.txt || true
     adb shell run-as "$PACKAGE" cat files/game/android_startup.log > smoke-results/startup.txt || true
 }
 trap capture EXIT

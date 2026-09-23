@@ -270,7 +270,7 @@ public final class LauncherActivity extends Activity {
             report.append(android.os.Build.MANUFACTURER).append(' ')
                     .append(android.os.Build.MODEL).append(" · Android ")
                     .append(android.os.Build.VERSION.RELEASE).append('\n');
-            for (String name : new String[]{"android_startup.txt", "android_startup.log", "sim_config.ini"}) {
+            for (String name : new String[]{"android_startup.txt", "android_startup.log", "android_runtime.log", "sim_config.ini"}) {
                 File file = new File(gameDir, name);
                 if (!file.isFile()) continue;
                 try (InputStream input = new FileInputStream(file)) {

@@ -162,6 +162,12 @@ edit(main, '    SIM_GUI_ProcessEvent(&Event);\n    if (Event.type == SDL_WINDOWE
 #endif
     if (Event.type == SDL_WINDOWEVENT)''')
 
+# SDLActivity waits for nativeSendQuit before destroying its native thread.
+# Always handle termination before menu input consumption, even while paused.
+edit(main, '    SIM_GUI_ProcessEvent(&Event);', '#ifdef SDK_BUILD_ANDROID\n    if (Event.type == SDL_QUIT || Event.type == SDL_APP_TERMINATING ||\n        (Event.type == SDL_WINDOWEVENT && Event.window.event == SDL_WINDOWEVENT_CLOSE))\n      exit(0);\n    if (Event.type == SDL_KEYDOWN && Event.key.keysym.sym == SDLK_AC_BACK && !Event.key.repeat) {\n      SIM_GUI_Toggle();\n      continue;\n    }\n#endif\n    SIM_GUI_ProcessEvent(&Event);')
+# Keep native assertions and filesystem errors, not only startup milestones.
+edit(main, '  FILE *trace = fopen("android_startup.log", "w");', '  if (freopen("android_runtime.log", "w", stdout)) {\n    setvbuf(stdout, NULL, _IOLBF, 0);\n    dup2(fileno(stdout), fileno(stderr));\n  }\n  FILE *trace = fopen("android_startup.log", "w");')
+
 # A second ABI is used only for an automated Android emulator boot test.
 native = root / 'tools/android/build-native.sh'
 edit(native, 'if [[ "$ABI" != "arm64-v8a" ]]; then',
