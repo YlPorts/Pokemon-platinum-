@@ -206,8 +206,61 @@ for old, new in (
         ANDROID_STAGE(stage);
 #endif
         saveTable[i].initFunc(page);'''),
-):
+): 
     replace(save, old, new)
+
+boxes = root / "src/pc_boxes.c"
+replace(boxes, '#include "pc_boxes.h"',
+        '#include "pc_boxes.h"\n\n#ifdef SDK_BUILD_ANDROID\n#include <stdio.h>\n#include "constants/charcode.h"\n#endif')
+replace(boxes, 'static void PCBoxes_InitInternal(PCBoxes *pcBoxes);',
+        stage_macro + '\nstatic void PCBoxes_InitInternal(PCBoxes *pcBoxes);')
+replace(boxes,
+        '    PCBoxes_InitInternal(pcBoxes);\n    SaveData_SetFullSaveRequired();',
+        '''    ANDROID_STAGE("PC: iniciando cajas");
+    PCBoxes_InitInternal(pcBoxes);
+    ANDROID_STAGE("PC: cajas listas");
+    SaveData_SetFullSaveRequired();''')
+replace(boxes,
+        '    for (boxID = 0; boxID < MAX_PC_BOXES; boxID++) {\n        for (i = 0; i < MAX_MONS_PER_BOX; i++) {\n            BoxPokemon_Init(&pcBoxes->boxMons[boxID][i]);',
+        '''    for (boxID = 0; boxID < MAX_PC_BOXES; boxID++) {
+#ifdef SDK_BUILD_ANDROID
+        char stage[64];
+        snprintf(stage, sizeof(stage), "PC: preparar caja %u", boxID + 1);
+        ANDROID_STAGE(stage);
+#endif
+        for (i = 0; i < MAX_MONS_PER_BOX; i++) {
+            BoxPokemon_Init(&pcBoxes->boxMons[boxID][i]);''')
+replace(boxes,
+        '    MessageLoader *messageLoader = MessageLoader_Init(MSG_LOADER_LOAD_ON_DEMAND, NARC_INDEX_MSGDATA__PL_MSG, TEXT_BANK_POKEMON_STORAGE_SYSTEM, HEAP_ID_SYSTEM);',
+        '''    ANDROID_STAGE("PC: nombres de cajas");
+#ifdef SDK_BUILD_ANDROID
+    // The USA ROM's initial box names are BOX 1..18. Avoid opening the
+    // message archive while creating a new save on Android; names can still
+    // be changed normally later through the game's PC interface.
+    for (boxID = 0; boxID < MAX_PC_BOXES; boxID++) {
+        u16 *name = pcBoxes->names[boxID];
+        u32 number = boxID + 1;
+        u32 pos = 0;
+        name[pos++] = CHAR_B;
+        name[pos++] = CHAR_O;
+        name[pos++] = CHAR_X;
+        name[pos++] = CHAR_SPACE;
+        if (number >= 10) {
+            name[pos++] = CHAR_0 + number / 10;
+        }
+        name[pos++] = CHAR_0 + number % 10;
+        name[pos] = CHAR_EOS;
+    }
+#else
+    MessageLoader *messageLoader = MessageLoader_Init(MSG_LOADER_LOAD_ON_DEMAND, NARC_INDEX_MSGDATA__PL_MSG, TEXT_BANK_POKEMON_STORAGE_SYSTEM, HEAP_ID_SYSTEM);''')
+replace(boxes,
+        '        MessageLoader_Free(messageLoader);\n    }\n\n    pcBoxes->currentBoxID = 0;',
+        '''        MessageLoader_Free(messageLoader);
+    }
+#endif
+    ANDROID_STAGE("PC: nombres listos");
+
+    pcBoxes->currentBoxID = 0;''')
 
 gui = root / "subprojects/libntr/libraries/sim/src/gui/gui.c"
 replace(gui,
