@@ -1,24 +1,21 @@
 # Pokémon Platinum para Android
 
-Este repositorio contiene el código fuente Android del port de Pokémon Platinum para PC. El archivo de código completo está guardado en fragmentos dentro de `.source-bundle/`; el flujo de GitHub Actions los reconstruye y compila el APK en cada subida a `main`.
+El proyecto Android está dividido en tres fragmentos del mismo ZIP:
 
-## Compilar y descargar el APK
+- `pokeplatinum-android-source.zip.t0.001`
+- `pokeplatinum-android-source.zip.t0.002`
+- `pokeplatinum-android-source.zip.t0.003`
 
-1. Abre **Actions → Android APK**.
-2. Entra al último flujo terminado y descarga el artefacto `Pokemon-Platinum-Android-debug`.
+**Estado actual:** falta el fragmento `.002`. Las partes `.001` y `.003` no forman un ZIP completo. Sube la parte `.002` correspondiente a esos mismos archivos; no mezcles fragmentos de otro ZIP.
 
-También puedes ejecutar el flujo con **Run workflow**. El APK es de depuración y solo compila para `arm64-v8a`.
+Al subir la parte faltante, el flujo [Android APK](../../actions/workflows/android-apk.yml) se inicia automáticamente. También se puede iniciar manualmente desde **Actions → Android APK → Run workflow**. El flujo reconstruye el ZIP con `assemble-source-bundle.py`, intenta compilar el proyecto con Gradle y, si termina correctamente, publica el artefacto `Pokemon-Platinum-Android-debug`.
 
-## Recuperar el código fuente
+El APK de depuración, si la compilación termina, estará en `android/app/build/outputs/apk/debug/app-debug.apk` dentro del código reconstruido. Este flujo aún no ha producido un APK probado.
 
-Con Python 3 instalado, ejecuta desde la raíz del repositorio:
+Para reconstruir el código localmente:
 
 ```sh
 python3 assemble-source-bundle.py
 ```
 
-El script reconstruye y extrae el archivo completo en `_source/pokeplatinum-pcport-source/`.
-
-## Archivos del juego
-
-El APK no incluye una ROM ni los archivos extraídos. Al abrir la aplicación, importa la carpeta `root` de los archivos extraídos de tu propia copia estadounidense de Pokémon Platinum.
+El código queda en `_source/pokeplatinum-pcport-source/`. El APK no incluye una ROM ni los archivos del juego: la aplicación requiere importar la carpeta `root` extraída de una copia propia de Pokémon Platinum estadounidense.
