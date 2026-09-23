@@ -168,8 +168,46 @@ for old, new in (
     ("#ifndef SDK_TEG\n    CTRDG_Init();\n#endif\n\n#ifndef SDK_SMALL_BUILD", '#ifndef SDK_TEG\n    ANDROID_STAGE("OS: cartucho");\n    CTRDG_Init();\n#endif\n\n#ifndef SDK_SMALL_BUILD'),
     ("    CARD_Init();", '    ANDROID_STAGE("OS: tarjeta ROM");\n    CARD_Init();'),
     ("    PM_Init();", '    ANDROID_STAGE("OS: energía");\n    PM_Init();'),
-):
+): 
     replace(os_init, old, new)
+
+save = root / "src/savedata.c"
+replace(save, "static SaveData *sSaveDataPtr = NULL;",
+        stage_macro + "\nstatic SaveData *sSaveDataPtr = NULL;")
+for old, new in (
+    ("    SaveData *saveData = Heap_Alloc(HEAP_ID_SAVE, sizeof(SaveData));",
+     '    ANDROID_STAGE("Guardado: reservar memoria");\n    SaveData *saveData = Heap_Alloc(HEAP_ID_SAVE, sizeof(SaveData));'),
+    ("    MI_CpuClearFast(saveData, sizeof(SaveData));",
+     '    ANDROID_STAGE(saveData ? "Guardado: limpiar memoria" : "Guardado: sin memoria");\n    MI_CpuClearFast(saveData, sizeof(SaveData));'),
+    ("    SavePageInfo_Init(saveData->pageInfo);",
+     '    ANDROID_STAGE("Guardado: calcular tamaños");\n    SavePageInfo_Init(saveData->pageInfo);'),
+    ("    SaveBlockInfo_Init(saveData->blockInfo, saveData->pageInfo);",
+     '    ANDROID_STAGE("Guardado: preparar bloques");\n    SaveBlockInfo_Init(saveData->blockInfo, saveData->pageInfo);'),
+    ("    int loadResult = SaveData_LoadCheck(saveData);",
+     '    ANDROID_STAGE("Guardado: comprobar partida");\n    int loadResult = SaveData_LoadCheck(saveData);\n    ANDROID_STAGE("Guardado: partida comprobada");'),
+    ("    case LOAD_RESULT_EMPTY:\n        SaveData_Clear(saveData);",
+     '    case LOAD_RESULT_EMPTY:\n        ANDROID_STAGE("Guardado: crear partida nueva");\n        SaveData_Clear(saveData);'),
+    ("    return saveData;\n}\n\nSaveData *SaveData_Ptr",
+     '    ANDROID_STAGE("Guardado: listo");\n    return saveData;\n}\n\nSaveData *SaveData_Ptr'),
+    ("    u8 *primaryBuffer = Heap_AllocAtEnd(HEAP_ID_APPLICATION, SAVE_SECTOR_SIZE * SAVE_PAGE_MAX);\n    u8 *backupBuffer = Heap_AllocAtEnd(HEAP_ID_APPLICATION, SAVE_SECTOR_SIZE * SAVE_PAGE_MAX);",
+     '    ANDROID_STAGE("Guardado: reservar sectores");\n    u8 *primaryBuffer = Heap_AllocAtEnd(HEAP_ID_APPLICATION, SAVE_SECTOR_SIZE * SAVE_PAGE_MAX);\n    u8 *backupBuffer = Heap_AllocAtEnd(HEAP_ID_APPLICATION, SAVE_SECTOR_SIZE * SAVE_PAGE_MAX);\n    ANDROID_STAGE(primaryBuffer && backupBuffer ? "Guardado: sectores reservados" : "Guardado: sin memoria para sectores");'),
+    ("    if (SaveData_CardLoad(PRIMARY_SECTOR_START * SAVE_SECTOR_SIZE, primaryBuffer, SAVE_SECTOR_SIZE * SAVE_PAGE_MAX)) {",
+     '    ANDROID_STAGE("Guardado: leer sector principal");\n    if (SaveData_CardLoad(PRIMARY_SECTOR_START * SAVE_SECTOR_SIZE, primaryBuffer, SAVE_SECTOR_SIZE * SAVE_PAGE_MAX)) {'),
+    ("    if (SaveData_CardLoad(BACKUP_SECTOR_START * SAVE_SECTOR_SIZE, backupBuffer, SAVE_SECTOR_SIZE * SAVE_PAGE_MAX)) {",
+     '    ANDROID_STAGE("Guardado: leer sector respaldo");\n    if (SaveData_CardLoad(BACKUP_SECTOR_START * SAVE_SECTOR_SIZE, backupBuffer, SAVE_SECTOR_SIZE * SAVE_PAGE_MAX)) {'),
+    ("    Heap_Free(primaryBuffer);\n    Heap_Free(backupBuffer);",
+     '    ANDROID_STAGE("Guardado: liberar sectores");\n    Heap_Free(primaryBuffer);\n    Heap_Free(backupBuffer);'),
+    ("    MI_CpuClearFast(body->data, sizeof(body->data));",
+     '    ANDROID_STAGE("Guardado: limpiar partida nueva");\n    MI_CpuClearFast(body->data, sizeof(body->data));'),
+    ("        saveTable[i].initFunc(page);",
+     '''#ifdef SDK_BUILD_ANDROID
+        char stage[80];
+        snprintf(stage, sizeof(stage), "Guardado: iniciar sección %d", i);
+        ANDROID_STAGE(stage);
+#endif
+        saveTable[i].initFunc(page);'''),
+):
+    replace(save, old, new)
 
 gui = root / "subprojects/libntr/libraries/sim/src/gui/gui.c"
 replace(gui,
