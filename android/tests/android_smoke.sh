@@ -5,7 +5,7 @@ APK="$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
 PACKAGE=org.pokeplatinum.android
 mkdir -p smoke-results
 capture() {
-    adb exec-out screencap -p > smoke-results/game.png || true
+    adb exec-out screencap -p > smoke-results/final.png || true
     adb logcat -d > smoke-results/logcat.txt || true
     adb shell run-as "$PACKAGE" cat files/game/android_startup.log > smoke-results/startup.txt || true
 }
@@ -17,6 +17,7 @@ adb push /tmp/platinum-assets.tar /data/local/tmp/platinum-assets.tar
 adb shell run-as "$PACKAGE" mkdir -p files/game
 adb shell run-as "$PACKAGE" tar --no-same-owner -xf /data/local/tmp/platinum-assets.tar -C files/game
 adb shell run-as "$PACKAGE" touch files/game/.root_imported files/game/.android_assets_v027
+adb shell settings put secure immersive_mode_confirmations confirmed
 adb shell am start -n "$PACKAGE/.LauncherActivity"
 sleep 8
 adb shell uiautomator dump /sdcard/launcher.xml
@@ -51,3 +52,16 @@ colors = image.crop((w//5, h//5, w*4//5, h*3//5)).getcolors(w*h)
 assert colors and len(colors) > 20, 'Game viewport has no rendered scene'
 print('PASS: Android game stays alive and renders a scene')
 PY
+
+# Advance using a held A touch and check that the native menu is reachable.
+for press in $(seq 1 6); do
+    adb shell input swipe 958 1680 958 1680 180
+    sleep 1
+done
+sleep 5
+adb exec-out screencap -p > smoke-results/game-input.png
+adb shell pidof "$PACKAGE:game"
+adb shell input swipe 80 50 80 50 180
+sleep 2
+adb exec-out screencap -p > smoke-results/menu.png
+adb shell pidof "$PACKAGE:game"
