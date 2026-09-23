@@ -42,6 +42,10 @@ jobs:
         run: |
           sed -i 's|$TOOLCHAIN/build/cmake/android.toolchain.cmake|$NDK/build/cmake/android.toolchain.cmake|g' \
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
+          sed -i "s/\['c', 'cpp', 'nasm'\]/['c', 'cpp']/" \
+            _source/pokeplatinum-pcport-source/meson.build
+          sed -i "s/'c', 'cpp', 'nasm'/'c', 'cpp'/" \
+            _source/pokeplatinum-pcport-source/subprojects/libntr/meson.build
       - name: Compile APK
         run: gradle -p _source/pokeplatinum-pcport-source/android assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
