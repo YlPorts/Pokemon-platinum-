@@ -175,7 +175,7 @@ replace(sound, '    NNS_SndArcInit(&soundSys->arc, "data/sound/pl_sound_data.sda
     NNS_SndArcInit(&soundSys->arc, "data/sound/pl_sound_data.sdat", soundSys->heap, 0);
 #ifdef SDK_BUILD_ANDROID
     if (NNS_SndArcGetCurrent() != &soundSys->arc || soundSys->arc.info == NULL) {
-        ANDROID_STAGE("Sonido: archivo SDAT no cargado");
+        // Keep the precise failure recorded by NNS_SndArcInit/Setup.
         abort();
     }
 #endif
@@ -209,6 +209,103 @@ replace(arc, 'arc->header.fatSize*2, FatDisposeCallback, (u32)arc, 0',
         'arc->header.fatSize*2, FatDisposeCallback, (u64)arc, 0')
 replace(arc, 'SymbolDisposeCallback, (u32)arc, 0',
         'SymbolDisposeCallback, (u64)arc, 0')
+replace(arc, '#include <nnsys/snd/config.h>',
+        '''#include <nnsys/snd/config.h>
+#ifdef SDK_BUILD_ANDROID
+extern void SIM_AndroidStartupStage(const char *stage);
+#define ANDROID_ARC_STAGE(stage) SIM_AndroidStartupStage(stage)
+#else
+#define ANDROID_ARC_STAGE(stage) ((void)0)
+#endif''')
+replace(arc,
+        '''    #ifdef SDK_PORT
+    result = FS_OpenFile( &arc->file, filePath );
+    NNS_ASSERTMSG( result, "Cannot open file %s\\n", filePath );
+    if ( ! result ) return;
+    #else''',
+        '''    #ifdef SDK_PORT
+    #ifndef SDK_BUILD_ANDROID
+    result = FS_OpenFile( &arc->file, filePath );
+    NNS_ASSERTMSG( result, "Cannot open file %s\\n", filePath );
+    if ( ! result ) return;
+    #endif
+    #else''')
+replace(arc,
+        '''    FS_InitFile(&arc->file);
+
+    #ifdef SDK_PORT
+    result = FS_OpenFile(& arc->file, filePath);''',
+        '''    FS_InitFile(&arc->file);
+
+    #ifdef SDK_PORT
+    ANDROID_ARC_STAGE("Sonido: SDAT abrir ruta");
+    result = FS_OpenFile(& arc->file, filePath);''')
+replace(arc,
+        '''    NNS_ASSERTMSG(result, "Cannot open file %s\\n", filePath);
+    if (!result) return;
+
+    arc->file_open = TRUE;''',
+        '''    NNS_ASSERTMSG(result, "Cannot open file %s\\n", filePath);
+    if (!result) {
+        ANDROID_ARC_STAGE("Sonido: SDAT archivo ausente");
+        return;
+    }
+
+    arc->file_open = TRUE;''')
+replace(arc,
+        '''    result = FS_SeekFile(&arc->file, 0, FS_SEEK_SET);
+    if (!result) return FALSE;
+
+    readSize = FS_ReadFile(''',
+        '''    ANDROID_ARC_STAGE("Sonido: SDAT leer cabecera");
+    result = FS_SeekFile(&arc->file, 0, FS_SEEK_SET);
+    if (!result) return FALSE;
+
+    readSize = FS_ReadFile(''')
+replace(arc,
+        '''    if (heap != NNS_SND_HEAP_INVALID_HANDLE) {
+
+        arc->info =''',
+        '''    if (heap != NNS_SND_HEAP_INVALID_HANDLE) {
+
+        ANDROID_ARC_STAGE("Sonido: SDAT reservar INFO");
+        arc->info =''')
+replace(arc,
+        '''        if (arc->info == NULL) return FALSE;
+        result = FS_SeekFile''',
+        '''        if (arc->info == NULL) return FALSE;
+        ANDROID_ARC_STAGE("Sonido: SDAT leer INFO");
+        result = FS_SeekFile''')
+replace(arc,
+        '''        #ifdef SDK_PORT
+        arc->fat = (NNSSndArcFat *)NNS_SndHeapAlloc''',
+        '''        ANDROID_ARC_STAGE("Sonido: SDAT reservar FAT");
+        #ifdef SDK_PORT
+        arc->fat = (NNSSndArcFat *)NNS_SndHeapAlloc''')
+replace(arc,
+        '''        if (arc->fat == NULL) return FALSE;
+        result = FS_SeekFile''',
+        '''        if (arc->fat == NULL) return FALSE;
+        ANDROID_ARC_STAGE("Sonido: SDAT leer FAT");
+        result = FS_SeekFile''')
+replace(arc,
+        '''        WIN_NNSSndArcFat * arcFatWin;
+        arcFatWin = malloc''',
+        '''        ANDROID_ARC_STAGE("Sonido: SDAT convertir FAT");
+        WIN_NNSSndArcFat * arcFatWin;
+        arcFatWin = malloc''')
+replace(arc,
+        '''        arcFatWin = malloc( sizeof( WIN_NNSSndArcFat ) + ( sizeof( WIN_NNSSndArcFileInfo ) * arc->fat->count ));
+        arcFatWin = memcpy''',
+        '''        arcFatWin = malloc( sizeof( WIN_NNSSndArcFat ) + ( sizeof( WIN_NNSSndArcFileInfo ) * arc->fat->count ));
+        if (arcFatWin == NULL) return FALSE;
+        arcFatWin = memcpy''')
+replace(arc,
+        '''        free( arcFatWin );
+        #endif''',
+        '''        free( arcFatWin );
+        ANDROID_ARC_STAGE("Sonido: SDAT estructura lista");
+        #endif''')
 
 system = root / "src/system.c"
 replace(system, "#define MAIN_TASK_MAX", stage_macro + "\n#define MAIN_TASK_MAX")
