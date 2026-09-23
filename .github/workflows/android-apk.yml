@@ -81,11 +81,9 @@ jobs:
               if 'typedef ushort wctype_t;' in source:
                   source = source.replace('typedef ushort wctype_t;',
                                           '#ifndef SDK_BUILD_ANDROID\ntypedef ushort wctype_t;\n#endif')
-                  path.write_text(source)
-          auth = root / 'subprojects/libntrdwc/libraries/auth/src/dwc_auth.c'
-          source = auth.read_text()
-          source = source.replace('#include <nitro.h>', '#include <nitro.h>\n#ifdef SDK_BUILD_ANDROID\n#include <errno.h>\n#endif', 1)
-          auth.write_text(source)
+              if path.suffix == '.c':
+                  source = '#ifdef SDK_BUILD_ANDROID\n#include <errno.h>\n#endif\n' + source
+              path.write_text(source)
           g3d = root / 'subprojects/libntrsystem/include/nnsys/g3d'
           config = g3d / 'config.h'
           source = config.read_text()
