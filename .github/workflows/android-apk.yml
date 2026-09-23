@@ -60,7 +60,7 @@ jobs:
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's/minSdk 23/minSdk 24/' \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
-          sed -i "s/versionCode 1/versionCode 2/; s/versionName '0.1.0'/versionName '0.2.0'/" \
+          sed -i "s/versionCode 1/versionCode 3/; s/versionName '0.1.0'/versionName '0.2.1'/" \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
           cp android/overrides/*.java \
             _source/pokeplatinum-pcport-source/android/app/src/main/java/org/pokeplatinum/android/
@@ -83,6 +83,19 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           root = Path('_source/pokeplatinum-pcport-source')
+          native_script = root / 'tools/android/build-native.sh'
+          source = native_script.read_text()
+          old = 'cp "$SDL_LIB" "$NATIVE_OUT/libSDL2.so"\n'
+          replacement = (old +
+                         'CXX_SHARED="$NDK/toolchains/llvm/prebuilt/$HOST_TAG/sysroot/usr/lib/$TRIPLE/libc++_shared.so"\n'
+                         'if [[ ! -f "$CXX_SHARED" ]]; then\n'
+                         '    echo "Could not find the NDK C++ shared runtime at $CXX_SHARED" >&2\n'
+                         '    exit 2\n'
+                         'fi\n'
+                         'cp "$CXX_SHARED" "$NATIVE_OUT/libc++_shared.so"\n')
+          if source.count(old) != 1:
+              raise RuntimeError('SDL2 packaging line was not found exactly once')
+          native_script.write_text(source.replace(old, replacement, 1))
           component = root / 'subprojects/libntr/components/ichneumon/meson.build'
           source = component.read_text().replace('    native: false\n)',
                                                  "    native: false,\n    build_by_default: (build_target == 'arm')\n)")
@@ -141,6 +154,14 @@ jobs:
           test "$(git hash-object "$root/res/graphics/field_sprites/frame_sequences/save.bin")" = 428be0d81e3f0831dcf6ff8d671a6d05b0814abc
       - name: Compile APK
         run: gradle -p _source/pokeplatinum-pcport-source/android assembleDebug --stacktrace
+      - name: Verify packaged native libraries
+        run: |
+          apk='_source/pokeplatinum-pcport-source/android/app/build/outputs/apk/debug/app-debug.apk'
+          for name in libmain.so libSDL2.so libc++_shared.so; do
+            unzip -Z1 "$apk" | grep -Fxq "lib/arm64-v8a/$name"
+          done
+          unzip -p "$apk" lib/arm64-v8a/libc++_shared.so > /tmp/pokemon-cxx-runtime.so
+          readelf -h /tmp/pokemon-cxx-runtime.so | grep -Fq AArch64
       - uses: actions/upload-artifact@v4
         with:
           name: Pokemon-Platinum-Android-debug
