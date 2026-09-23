@@ -14,11 +14,14 @@ import android.widget.TextView;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -28,6 +31,8 @@ public final class LauncherActivity extends Activity {
     private static final int REQUEST_IMPORT_ROM = 42;
     private static final String IMPORT_MARKER = ".root_imported";
     private static final String ASSET_VERSION_MARKER = ".android_assets_v027";
+    private static final String SOUND_ASSET = "data/sound/pl_sound_data.sdat";
+    private static final String SOUND_SHA256 = "2800b19d4936b52b5eb8a096c55a80142cab1c4a86988a9911fbc8b183dd5d19";
     private static final long MAX_ROM_BYTES = 512L * 1024 * 1024;
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -377,18 +382,67 @@ public final class LauncherActivity extends Activity {
         File marker = new File(gameDir, ".android_assets_installed");
         File currentVersion = new File(gameDir, ASSET_VERSION_MARKER);
         if (marker.isFile() && currentVersion.isFile()) {
+            ensureBundledSoundAsset();
             restoreRuntimeHeader();
             return;
         }
         // Upgrade old installs too: previous ROM imports replaced some
         // generated assets with incompatible retail versions.
         copyAssetDirectory("");
+        ensureBundledSoundAsset();
         restoreRuntimeHeader();
         if (!marker.createNewFile() && !marker.isFile()) {
             throw new IOException("no se pudo registrar la instalación");
         }
         if (!currentVersion.createNewFile() && !currentVersion.isFile()) {
             throw new IOException("no se pudo registrar la actualización");
+        }
+    }
+
+    private void ensureBundledSoundAsset() throws IOException {
+        File sound = new File(gameDir, SOUND_ASSET);
+        if (sound.isFile() && SOUND_SHA256.equals(sha256(sound))) {
+            return;
+        }
+
+        File parent = sound.getParentFile();
+        if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
+            throw new IOException("no se pudo preparar la carpeta de sonido");
+        }
+        File temporary = new File(parent, sound.getName() + ".new");
+        try (InputStream input = getAssets().open(SOUND_ASSET);
+             OutputStream output = new FileOutputStream(temporary)) {
+            copy(input, output);
+        }
+        if (!SOUND_SHA256.equals(sha256(temporary))) {
+            throw new IOException("el SDAT incluido está incompleto");
+        }
+        if (sound.exists() && !sound.delete()) {
+            throw new IOException("no se pudo reemplazar el SDAT anterior");
+        }
+        if (!temporary.renameTo(sound)) {
+            throw new IOException("no se pudo instalar el SDAT");
+        }
+    }
+
+    private static String sha256(File file) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream input = new FileInputStream(file)) {
+                byte[] buffer = new byte[64 * 1024];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    digest.update(buffer, 0, count);
+                }
+            }
+            StringBuilder hex = new StringBuilder(64);
+            for (byte value : digest.digest()) {
+                hex.append(Character.forDigit((value >>> 4) & 15, 16));
+                hex.append(Character.forDigit(value & 15, 16));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException error) {
+            throw new IOException("SHA-256 no está disponible", error);
         }
     }
 
