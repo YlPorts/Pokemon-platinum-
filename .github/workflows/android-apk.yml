@@ -71,6 +71,16 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           root = Path('_source/pokeplatinum-pcport-source')
+          component = root / 'subprojects/libntr/components/ichneumon/meson.build'
+          source = component.read_text().replace('    native: false\n)',
+                                                 "    native: false,\n    build_by_default: (build_target == 'arm')\n)")
+          component.write_text(source)
+          top = root / 'meson.build'
+          source = top.read_text()
+          start = source.index("elif (build_target == 'android')\ncopy_android_assets_script")
+          end = source.index("\nelse\n# Copy files into 'pc' folder", start)
+          source = source[:start] + source[start:end].replace('        ichneumon_sub,\n', '', 1) + source[end:]
+          top.write_text(source)
           network = root / 'subprojects/libntrwifi/libraries/cps/src/network.c'
           source = network.read_text()
           source = source.replace('#include <nitroWiFi/decomp/decomp_defs_nitrowifi.h>',
