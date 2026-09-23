@@ -46,6 +46,8 @@ public final class LauncherActivity extends Activity {
     private Spinner fpsChoice;
     private Spinner scaleChoice;
     private Spinner syncChoice;
+    private Spinner wideChoice;
+    private android.widget.CheckBox swapChoice;
     private static final String[] LAYOUT_VALUES = {"vertical", "horizontal", "widescreen", "large"};
     private static final String[] FPS_VALUES = {"30", "60", "90", "120", "0"};
 
@@ -124,6 +126,18 @@ public final class LauncherActivity extends Activity {
         syncChoice = addChoice(content, "Sincronización vertical", new String[]{
                 "Activada", "Desactivada"
         }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("sync", 0));
+        wideChoice = addChoice(content, "Expansión 3D panorámica", new String[]{
+                "Automática", "Siempre activa", "Desactivada"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("wide", 0));
+        swapChoice = new android.widget.CheckBox(this);
+        swapChoice.setText("Intercambiar pantallas");
+        swapChoice.setChecked(getSharedPreferences("display_options", MODE_PRIVATE).getBoolean("swap", false));
+        content.addView(swapChoice);
+
+        Button diagnostics = new Button(this);
+        diagnostics.setText("Copiar diagnóstico");
+        diagnostics.setOnClickListener(view -> copyDiagnostics());
+        content.addView(diagnostics, buttonParams);
 
         status = new TextView(this);
         status.setTextSize(14);
@@ -158,6 +172,8 @@ public final class LauncherActivity extends Activity {
                     .putInt("layout", layoutChoice.getSelectedItemPosition())
                     .putInt("fps", fpsChoice.getSelectedItemPosition())
                     .putInt("scale", scaleChoice.getSelectedItemPosition())
+                    .putInt("wide", wideChoice.getSelectedItemPosition())
+                    .putBoolean("swap", swapChoice.isChecked())
                     .putInt("sync", syncChoice.getSelectedItemPosition()).apply();
             returnedFromGame = true;
             startActivity(new Intent(this, GameActivity.class));
@@ -172,6 +188,8 @@ public final class LauncherActivity extends Activity {
         values.put("InternalResolutionScale", String.valueOf(scaleChoice.getSelectedItemPosition() + 1));
         values.put("WindowWidth", "0");
         values.put("WindowHeight", "0");
+        values.put("WidescreenMode", String.valueOf(wideChoice.getSelectedItemPosition()));
+        values.put("SwapScreens", swapChoice.isChecked() ? "true" : "false");
         values.put("VsyncInterval", syncChoice.getSelectedItemPosition() == 0 ? "1" : "0");
         int fpsIndex = fpsChoice.getSelectedItemPosition();
         values.put("CapFrameRate", fpsIndex == 4 ? "false" : "true");
@@ -229,7 +247,7 @@ public final class LauncherActivity extends Activity {
     private void updateReadyState() {
         boolean imported = new File(gameDir, IMPORT_MARKER).isFile();
         String message = imported
-                ? "ROM importada. Ya puedes jugar."
+                ? "ROM importada. Pulsa Iniciar juego."
                 : "Selecciona tu archivo Pokémon Platinum USA (.nds).";
         File startup = new File(gameDir, "android_startup.txt");
         if (imported && startup.isFile()) {
@@ -244,6 +262,51 @@ public final class LauncherActivity extends Activity {
         status.setText(message);
         importButton.setEnabled(true);
         playButton.setEnabled(imported);
+    }
+
+    private void copyDiagnostics() {
+        worker.execute(() -> {
+            StringBuilder report = new StringBuilder("PLATINUM ANDROID 0.3.0\n");
+            report.append(android.os.Build.MANUFACTURER).append(' ')
+                    .append(android.os.Build.MODEL).append(" · Android ")
+                    .append(android.os.Build.VERSION.RELEASE).append('\n');
+            for (String name : new String[]{"android_startup.txt", "android_startup.log", "sim_config.ini"}) {
+                File file = new File(gameDir, name);
+                if (!file.isFile()) continue;
+                try (InputStream input = new FileInputStream(file)) {
+                    report.append('\n').append(name).append(":\n")
+                            .append(readDiagnosticText(input, 65536));
+                } catch (IOException error) { report.append(error.getMessage()).append('\n'); }
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                android.app.ActivityManager manager = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+                for (android.app.ApplicationExitInfo exit : manager.getHistoricalProcessExitReasons(getPackageName(), 0, 8)) {
+                    if (!exit.getProcessName().endsWith(":game")) continue;
+                    report.append("\nSalida: ").append(exit.getReason()).append(" estado: ")
+                            .append(exit.getStatus()).append("\n").append(exit.getDescription()).append('\n');
+                    try (InputStream trace = exit.getTraceInputStream()) {
+                        if (trace != null) report.append(readDiagnosticText(trace, 65536));
+                    } catch (IOException error) { report.append(error.getMessage()); }
+                    break;
+                }
+            }
+            final String text = report.toString();
+            runOnUiThread(() -> {
+                android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Platinum diagnóstico", text));
+                android.widget.Toast.makeText(this, "Diagnóstico copiado", android.widget.Toast.LENGTH_SHORT).show();
+            });
+        });
+    }
+
+    private static String readDiagnosticText(InputStream input, int limit) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] chunk = new byte[4096];
+        int count;
+        while (output.size() < limit && (count = input.read(chunk, 0, Math.min(chunk.length, limit - output.size()))) > 0) {
+            output.write(chunk, 0, count);
+        }
+        return output.toString("UTF-8");
     }
 
     private void chooseRom() {

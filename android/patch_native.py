@@ -14,6 +14,22 @@ def replace(path, old, new):
     path.write_text(source.replace(old, new, 1))
 
 
+# Android uses LP64: long and pointers are 64 bits, but Nitro's binary data,
+# registers and fixed-point maths require u32/s32 to stay exactly 32 bits.
+types = root / "subprojects/libntr/include/nitro/types.h"
+source = types.read_text()
+old = "#if defined(SDK_BUILD_LINUX) || defined(SDK_BUILD_NX)"
+assert source.count(old) == 2
+source = source.replace(old, old + " || defined(SDK_BUILD_ANDROID)")
+source = source.replace("typedef volatile u8 vu8;", """#ifdef SDK_BUILD_ANDROID
+typedef char Nitro_u32_must_be_4_bytes[(sizeof(u32) == 4) ? 1 : -1];
+typedef char Nitro_s32_must_be_4_bytes[(sizeof(s32) == 4) ? 1 : -1];
+typedef char Nitro_u64_must_be_8_bytes[(sizeof(u64) == 8) ? 1 : -1];
+#endif
+
+typedef volatile u8 vu8;""")
+types.write_text(source)
+
 config = root / "subprojects/libntr/libraries/sim/src/config/sim_config.c"
 replace(config,
         "#else\n    aConfig->internalResolutionScale = 10;\n",
@@ -32,6 +48,8 @@ extern "C" void SIM_AndroidStartupStage(const char *stage) {
     fprintf(file, "%s\\n", stage);
     fclose(file);
   }
+  FILE *trace = fopen("android_startup.log", "a");
+  if (trace) { fprintf(trace, "%s\\n", stage); fclose(trace); }
   fprintf(stderr, "Platinum startup: %s\\n", stage);
 }
 #endif""")
@@ -94,6 +112,8 @@ replace(main,
     perror("Could not open the game data directory");
     return 1;
   }
+  FILE *trace = fopen("android_startup.log", "w");
+  if (trace) fclose(trace);
   SIM_AndroidStartupStage("Directorio del juego abierto");""")
 replace(main,
         "  if (!SIM_Config_LoadConfigFile(&s_SIM_config)) {\n    // Config file does not exist. Save config file with defaults\n    SIM_Config_SaveConfigFile(&s_SIM_config);\n  }",
@@ -282,16 +302,7 @@ replace(arc,
         '''        ANDROID_ARC_STAGE("Sonido: SDAT reservar FAT");
         #ifdef SDK_PORT
         arc->fat = (NNSSndArcFat *)NNS_SndHeapAlloc''')
-replace(arc,
-        '''        #ifdef SDK_PORT
-        arc->fat = (NNSSndArcFat *)NNS_SndHeapAlloc(heap, arc->header.fatSize*2, FatDisposeCallback, (u64)arc, 0);''',
-        '''        #ifdef SDK_BUILD_ANDROID
-        // FAT remains valid for the lifetime of the game. The SDK sound
-        // frame heap fails on its second allocation on Android arm64.
-        // Keep this archive index separate from the resettable sound heap.
-        arc->fat = (NNSSndArcFat *)malloc(arc->header.fatSize * 2);
-        #elif defined(SDK_PORT)
-        arc->fat = (NNSSndArcFat *)NNS_SndHeapAlloc(heap, arc->header.fatSize*2, FatDisposeCallback, (u64)arc, 0);''')
+
 replace(arc,
         '''        if (arc->fat == NULL) return FALSE;
         result = FS_SeekFile''',
@@ -384,59 +395,6 @@ for old, new in (
         saveTable[i].initFunc(page);'''),
 ): 
     replace(save, old, new)
-
-boxes = root / "src/pc_boxes.c"
-replace(boxes, '#include "pc_boxes.h"',
-        '#include "pc_boxes.h"\n\n#ifdef SDK_BUILD_ANDROID\n#include <stdio.h>\n#include "constants/charcode.h"\n#endif')
-replace(boxes, 'static void PCBoxes_InitInternal(PCBoxes *pcBoxes);',
-        stage_macro + '\nstatic void PCBoxes_InitInternal(PCBoxes *pcBoxes);')
-replace(boxes,
-        '    PCBoxes_InitInternal(pcBoxes);\n    SaveData_SetFullSaveRequired();',
-        '''    ANDROID_STAGE("PC: iniciando cajas");
-    PCBoxes_InitInternal(pcBoxes);
-    ANDROID_STAGE("PC: cajas listas");
-    SaveData_SetFullSaveRequired();''')
-replace(boxes,
-        '    for (boxID = 0; boxID < MAX_PC_BOXES; boxID++) {\n        for (i = 0; i < MAX_MONS_PER_BOX; i++) {\n            BoxPokemon_Init(&pcBoxes->boxMons[boxID][i]);',
-        '''    for (boxID = 0; boxID < MAX_PC_BOXES; boxID++) {
-#ifdef SDK_BUILD_ANDROID
-        char stage[64];
-        snprintf(stage, sizeof(stage), "PC: preparar caja %u", boxID + 1);
-        ANDROID_STAGE(stage);
-#endif
-        for (i = 0; i < MAX_MONS_PER_BOX; i++) {
-            BoxPokemon_Init(&pcBoxes->boxMons[boxID][i]);''')
-replace(boxes,
-        '    MessageLoader *messageLoader = MessageLoader_Init(MSG_LOADER_LOAD_ON_DEMAND, NARC_INDEX_MSGDATA__PL_MSG, TEXT_BANK_POKEMON_STORAGE_SYSTEM, HEAP_ID_SYSTEM);',
-        '''    ANDROID_STAGE("PC: nombres de cajas");
-#ifdef SDK_BUILD_ANDROID
-    // The USA ROM's initial box names are BOX 1..18. Avoid opening the
-    // message archive while creating a new save on Android; names can still
-    // be changed normally later through the game's PC interface.
-    for (boxID = 0; boxID < MAX_PC_BOXES; boxID++) {
-        u16 *name = pcBoxes->names[boxID];
-        u32 number = boxID + 1;
-        u32 pos = 0;
-        name[pos++] = CHAR_B;
-        name[pos++] = CHAR_O;
-        name[pos++] = CHAR_X;
-        name[pos++] = CHAR_SPACE;
-        if (number >= 10) {
-            name[pos++] = CHAR_0 + number / 10;
-        }
-        name[pos++] = CHAR_0 + number % 10;
-        name[pos] = CHAR_EOS;
-    }
-#else
-    MessageLoader *messageLoader = MessageLoader_Init(MSG_LOADER_LOAD_ON_DEMAND, NARC_INDEX_MSGDATA__PL_MSG, TEXT_BANK_POKEMON_STORAGE_SYSTEM, HEAP_ID_SYSTEM);''')
-replace(boxes,
-        '        MessageLoader_Free(messageLoader);\n    }\n\n    pcBoxes->currentBoxID = 0;',
-        '''        MessageLoader_Free(messageLoader);
-    }
-#endif
-    ANDROID_STAGE("PC: nombres listos");
-
-    pcBoxes->currentBoxID = 0;''')
 
 gui = root / "subprojects/libntr/libraries/sim/src/gui/gui.c"
 replace(gui,

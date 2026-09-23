@@ -8,6 +8,8 @@ on:
       - 'android/overrides/**'
       - 'android/tests/**'
       - 'android/patch_native.py'
+      - 'android/repair_runtime.py'
+      - 'android/package_source.py'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
@@ -40,7 +42,7 @@ jobs:
           yes | "$SDK_MANAGER" --licenses >/dev/null || true
           "$SDK_MANAGER" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build nasm gcc-arm-none-eabi binutils-arm-none-eabi libpng-dev libsdl2-dev libenet-dev pkg-config
+          sudo apt-get install -y cmake ninja-build nasm gcc-arm-none-eabi binutils-arm-none-eabi libpng-dev libsdl2-dev libenet-dev pkg-config ripgrep qemu-user gcc-aarch64-linux-gnu libegl1 libgl1-mesa-dri
           python3 -m pip install --user --break-system-packages 'meson>=1.12'
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
@@ -53,6 +55,14 @@ jobs:
           for project in libntrsystem libntrwifi libntrdwc libvct; do
             git clone --depth 1 "https://github.com/cybervisi0n/$project.git" "$root/subprojects/$project"
           done
+          git -C "$root/subprojects/libntrsystem" fetch --depth 1 origin cd778c9d5e45869f8ecb8245b316ac20ea576958
+          git -C "$root/subprojects/libntrsystem" checkout --detach cd778c9d5e45869f8ecb8245b316ac20ea576958
+          git -C "$root/subprojects/libntrwifi" fetch --depth 1 origin 067dabb137dfaf80b8ceeb3b3c4a7256bfabc3e0
+          git -C "$root/subprojects/libntrwifi" checkout --detach 067dabb137dfaf80b8ceeb3b3c4a7256bfabc3e0
+          git -C "$root/subprojects/libntrdwc" fetch --depth 1 origin 16246ba7b4269e6686f3e4da068e3c996a103739
+          git -C "$root/subprojects/libntrdwc" checkout --detach 16246ba7b4269e6686f3e4da068e3c996a103739
+          git -C "$root/subprojects/libvct" fetch --depth 1 origin a34ad47fc0d7d964483c287759b704b3b1f3b967
+          git -C "$root/subprojects/libvct" checkout --detach a34ad47fc0d7d964483c287759b704b3b1f3b967
           sed -i 's|$TOOLCHAIN/build/cmake/android.toolchain.cmake|$NDK/build/cmake/android.toolchain.cmake|g' \
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's|ANDROID_API_LEVEL:-23|ANDROID_API_LEVEL:-24|' \
@@ -61,7 +71,7 @@ jobs:
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's/minSdk 23/minSdk 24/' \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
-          sed -i "s/versionCode 1/versionCode 13/; s/versionName '0.1.0'/versionName '0.2.11'/" \
+          sed -i "s/versionCode 1/versionCode 14/; s/versionName '0.1.0'/versionName '0.3.0'/" \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
           cp android/overrides/*.java \
             _source/pokeplatinum-pcport-source/android/app/src/main/java/org/pokeplatinum/android/
@@ -142,6 +152,7 @@ jobs:
                   path.write_text(source)
           PY
           python3 android/patch_native.py "$root"
+          python3 android/repair_runtime.py "$root"
       - name: Restore omitted source assets
         run: |
           upstream='https://raw.githubusercontent.com/pret/pokeplatinum/c248fb3f8cc9934ded800e489567c5c0eeee92eb'
@@ -156,6 +167,12 @@ jobs:
           test "$(git hash-object "$root/res/graphics/field_sprites/frame_sequences/save.bin")" = 428be0d81e3f0831dcf6ff8d671a6d05b0814abc
       - name: Compile APK
         run: gradle -p _source/pokeplatinum-pcport-source/android assembleDebug --stacktrace
+      - name: Verify native ABI, heaps, SDAT and GLES
+        run: |
+          bash android/tests/run_native_tests.sh _source/pokeplatinum-pcport-source
+          python3 android/tests/check_gles.py _source/pokeplatinum-pcport-source
+      - name: Package reproducible source
+        run: python3 android/package_source.py _source/pokeplatinum-pcport-source
       - name: Verify packaged native libraries
         run: |
           apk='_source/pokeplatinum-pcport-source/android/app/build/outputs/apk/debug/app-debug.apk'
@@ -179,3 +196,57 @@ jobs:
           name: Pokemon-Platinum-Android-debug
           path: _source/pokeplatinum-pcport-source/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pokemon-Platinum-Android-source
+          path: Pokemon-Platinum-Android-v0.3.0-source.zip
+          if-no-files-found: error
+
+  android-smoke:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Pokemon-Platinum-Android-source
+      - name: Extract prepared source
+        run: unzip -q Pokemon-Platinum-Android-v0.3.0-source.zip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build nasm gcc-arm-none-eabi binutils-arm-none-eabi libpng-dev libsdl2-dev libenet-dev pkg-config ripgrep
+          python3 -m pip install --user --break-system-packages 'meson>=1.12' pillow
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;27.2.12479018' 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
+      - name: Compile emulator ABI
+        run: gradle -p pokeplatinum-android/android assembleDebug -PandroidAbi=x86_64 --stacktrace
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Boot Android and verify a rendered scene
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash android/tests/android_smoke.sh pokeplatinum-android
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-smoke-results
+          path: smoke-results

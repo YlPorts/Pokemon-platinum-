@@ -13,4 +13,12 @@ public final class GameActivity extends SDLActivity {
                 : ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         super.onCreate(state);
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Manifest runs this activity in :game. Dispose all native worker
+        // threads and globals before another launch, leaving the launcher alive.
+        if (!isChangingConfigurations()) android.os.Process.killProcess(android.os.Process.myPid());
+    }
 }
