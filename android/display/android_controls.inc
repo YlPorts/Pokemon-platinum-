@@ -37,12 +37,13 @@ static void SIM_GUI_AndroidProcessTouchEvent(SDL_Event *e) {
             SIM_Config_SaveConfigFile(&s_SIM_config); SIM_GUI_AndroidResetInput(); return;
         }
         if(ad_inside(s_androidLayout.keys[AD_TOUCH],x,y)) {
-            SIM_AndroidToggleTouchScreen(); SIM_GUI_AndroidResetInput(); return;
+            if(s_androidLayout.expanded && s_androidLayout.landscape) SIM_AndroidToggleTouchScreen();
+            SIM_GUI_AndroidResetInput(); return;
         }
         slot=freeSlot;
         if(slot<0) return;
         s_androidFingers[slot].active=true; s_androidFingers[slot].id=e->tfinger.fingerId;
-        s_androidFingers[slot].role=ad_pad_hit(&s_androidLayout,x,y)?1:
+        s_androidFingers[slot].role=ad_pad_region(&s_androidLayout,x,y)?1:
             ad_inside(s_androidLayout.touch,x,y)?2:0;
     }
     if(slot<0) return;

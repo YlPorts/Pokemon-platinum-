@@ -35,6 +35,11 @@ int main(void) {
  assert(!SIM_GUI_AndroidGetInputMask() && !SIM_GUI_AndroidStylus(&x,&y));
  a=landscape;ADRect k=a.keys[AD_SWAP];finger(SDL_FINGERDOWN,4,k.x+k.w/2,k.y+k.h/2);
  assert(s_SIM_config.swapScreens && saves==1 && !SIM_GUI_AndroidStylus(&x,&y));
- k=a.keys[AD_TOUCH];finger(SDL_FINGERDOWN,5,k.x+k.w/2,k.y+k.h/2);assert(toggles==1);
+ k=a.keys[AD_TOUCH];finger(SDL_FINGERDOWN,5,k.x+k.w/2,k.y+k.h/2);assert(toggles==0);
+ a=ad_layout(960,540,4,0,1,1,0,100);SIM_GUI_AndroidSetLayout(&a);
+ k=a.keys[AD_TOUCH];finger(SDL_FINGERDOWN,6,k.x+k.w/2,k.y+k.h/2);assert(toggles==1);
+ ADRect up=a.keys[AD_UP];float cx=up.x+up.w/2,cy=up.y+up.h*1.5f;
+ finger(SDL_FINGERDOWN,7,cx,cy);assert(!SIM_GUI_AndroidGetInputMask());
+ finger(SDL_FINGERMOTION,7,cx,cy-up.h);assert(SIM_GUI_AndroidGetInputMask()==(1<<AD_UP));
  puts("PASS: simultaneous pad/stylus, finger ownership, real R, rotation cancellation, toolbar");
 }

@@ -106,6 +106,11 @@ static inline unsigned short ad_pad_hit(const ADLayout *a,float x,float y) {
     }
     return 0;
 }
+static inline int ad_pad_region(const ADLayout *a,float x,float y) {
+    ADRect up=a->keys[AD_UP]; float c=up.w;
+    ADRect cross=ad_rect(up.x-c,up.y,c*3,c*3);
+    return ad_inside(cross,x,y) || ad_pad_hit(a,x,y)!=0;
+}
 static inline int ad_stylus(const ADLayout *a,float x,float y,int *sx,int *sy) {
     if(!ad_inside(a->touch,x,y)) return 0;
     *sx=(int)((x-a->touch.x)*256/a->touch.w);
