@@ -28,6 +28,7 @@ s=s.replace(old,'''/* Game thread publishes policy; render/input thread owns man
 static std::atomic<int> s_androidScreenHint{-1};
 static std::atomic<unsigned> s_androidScreenGeneration{0};
 static ADScreenPolicy s_androidPolicy={0xffffffffu,-1};
+static ADScreenTransition s_androidTransition={-1,-1,0,0};
 extern "C" void SIM_AndroidResetScreen(void) { s_androidScreenHint.store(-1); s_androidScreenGeneration.fetch_add(1); }
 extern "C" void SIM_AndroidScreenHint(int screen) { s_androidScreenHint.store(screen); }
 static int AndroidAutomaticScreen() {
@@ -36,7 +37,9 @@ static int AndroidAutomaticScreen() {
 }
 extern "C" int SIM_AndroidSelectedScreen(void) {
   int screen=AndroidAutomaticScreen();
-  int selected=ad_selected_screen(&s_androidPolicy,screen,s_androidScreenGeneration.load());
+  unsigned generation=s_androidScreenGeneration.load();
+  screen=ad_automatic_screen(&s_androidTransition,screen,generation,SDL_GetTicks());
+  int selected=ad_selected_screen(&s_androidPolicy,screen,generation);
   static int logged=-1;
   if(selected!=logged) { SDL_Log("Android screen: %s",selected?"touch":"top"); logged=selected; }
   return selected;
@@ -76,7 +79,12 @@ p=game('src/battle/battle_display.c');s=p.read_text()
 for name in ('SetCommandSelection','ShowMoveSelectMenu','ShowTargetSelectMenu','ShowYesNoMenu'):
     marker=f'static void Task_Player{name}(SysTask *task, void *data)\n{{'
     start=s.index(marker);end=s.index('\nstatic ',start+len(marker));body=s[start:end]
-    body=body.replace(marker,marker+'\n    ANDROID_SCREEN(1);',1)
+    if name=='SetCommandSelection':
+        body=body.replace('CommandSetData *commandSetData = data;', 'CommandSetData *commandSetData = data;\n    ANDROID_SCREEN(commandSetData->state>=5 && commandSetData->state<=6);',1)
+    elif name=='ShowYesNoMenu':
+        body=body.replace('YesNoMenuData *yesNoMenuData = data;', 'YesNoMenuData *yesNoMenuData = data;\n    ANDROID_SCREEN(yesNoMenuData->state>=2 && yesNoMenuData->state<=3);',1)
+    else:
+        body=body.replace(marker,marker+'\n    ANDROID_SCREEN(1);',1)
     body=body.replace('SysTask_Done(task);','ANDROID_SCREEN(0);\n            SysTask_Done(task);')
     s=s[:start]+body+s[end:]
 p.write_text(s)
