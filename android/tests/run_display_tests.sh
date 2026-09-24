@@ -16,3 +16,5 @@ gcc -std=gnu11 -w -DSDK_PORT -DSDK_BUILD_ANDROID -DSDK_ARM9 -DSDK_FINALROM -DNNS
 "$OUT/touch"
 gcc -std=c11 -I"$TEST_DIR/../display" "$TEST_DIR/display_policy_test.c" -o "$OUT/policy"
 "$OUT/policy"
+g++ -std=c++11 -I"$TEST_DIR/../display" "$TEST_DIR/display_cache_test.cpp" -o "$OUT/cache"
+"$OUT/cache"

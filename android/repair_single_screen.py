@@ -102,3 +102,31 @@ s='''#ifdef SDK_BUILD_ANDROID
 '''+s
 p.write_text(s)
 print('Single-screen game hooks and bound-program 3D uniforms applied')
+# Avoid deleting all GPU textures on a map transition. In particular, the
+# translucent pass below ResetDrawCache may still hold this frame's texture IDs.
+shutil.copyfile(Path(__file__).parent/'display/android_cache_trim.h',lib/'libraries/sim/include/android_cache_trim.h')
+p=lib/'libraries/sim/src/g3_draw.cpp';s=p.read_text()
+s=s.replace('static std::unordered_map<u64, GLuint> s_GLTextureCache;', '''static std::unordered_map<u64, GLuint> s_GLTextureCache;
+#ifdef SDK_BUILD_ANDROID
+#include "android_cache_trim.h"
+static std::unordered_map<u64, std::uint64_t> s_androidTextureUse;
+static std::uint64_t s_androidTextureFrame=0;
+#endif''')
+a=s.index('    if (s_GLTextureCache.size() > 1024) {'); b=s.index('\n}\n',a)
+old=s[a:b]
+s=s[:a]+'''#ifdef SDK_BUILD_ANDROID
+    ++s_androidTextureFrame;
+    ad_trim_textures(s_androidTextureUse,s_androidTextureFrame,[](u64 key) {
+        auto gpu=s_GLTextureCache.find(key);
+        if(gpu!=s_GLTextureCache.end()) { glDeleteTextures(1,&gpu->second); s_GLTextureCache.erase(gpu); }
+        auto cpu=sTextureCache.find(key);
+        if(cpu!=sTextureCache.end()) { delete[] cpu->second; sTextureCache.erase(cpu); }
+    });
+#else
+'''+old+'\n#endif'+s[b:]
+marker='\t\tcurGLTexId = 0;';assert s.count(marker)==1
+s=s.replace(marker,'''#ifdef SDK_BUILD_ANDROID
+        s_androidTextureUse[finalCRC]=s_androidTextureFrame;
+#endif
+'''+marker)
+p.write_text(s)

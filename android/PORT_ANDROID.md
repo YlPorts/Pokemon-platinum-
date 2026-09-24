@@ -87,3 +87,7 @@ En los dos puntos de dibujo 3D se enlaza el shader antes de enviar sus uniformes
 se eliminan las consultas GL_CURRENT_PROGRAM y enlaces redundantes por uniforme.
 No se altera la velocidad de la simulación ni se promete un número de FPS.
 La mejora en un teléfono físico necesita medición allí.
+
+La caché de texturas 3D ya no se vacía entera al superar 1024 entradas. Retira
+hasta 64 entradas antiguas por fotograma y conserva las usadas en los últimos
+fotogramas, incluidas las referenciadas por el dibujo translúcido pendiente.
