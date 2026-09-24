@@ -327,7 +327,7 @@ public final class LauncherActivity extends Activity {
             report.append(android.os.Build.MANUFACTURER).append(' ')
                     .append(android.os.Build.MODEL).append(" · Android ")
                     .append(android.os.Build.VERSION.RELEASE).append('\n');
-            for (String name : new String[]{"android_startup.txt", "android_startup.log", "android_runtime.log", "sim_config.ini"}) {
+            for (String name : new String[]{"android_startup.txt", "android_startup.log", "android_runtime.log", "android_performance.previous.log", "android_performance.log", "sim_config.ini"}) {
                 File file = new File(gameDir, name);
                 if (!file.isFile()) continue;
                 try (InputStream input = new FileInputStream(file)) {
@@ -365,7 +365,21 @@ public final class LauncherActivity extends Activity {
     }
 
     private static String readDiagnosticText(InputStream input, int limit) throws IOException {
-        return new String(readDiagnosticBytes(input, limit), StandardCharsets.UTF_8);
+        // Keep the end of text logs: the useful timing/crash lines come last.
+        byte[] ring = new byte[limit];
+        byte[] chunk = new byte[4096];
+        int pos = 0, size = 0, count;
+        while ((count = input.read(chunk)) != -1) {
+            for (int i = 0; i < count; i++) {
+                ring[pos] = chunk[i];
+                pos = (pos + 1) % limit;
+                if (size < limit) size++;
+            }
+        }
+        byte[] tail = new byte[size];
+        int start = size == limit ? pos : 0;
+        for (int i = 0; i < size; i++) tail[i] = ring[(start + i) % limit];
+        return new String(tail, StandardCharsets.UTF_8);
     }
 
     private static byte[] readDiagnosticBytes(InputStream input, int limit) throws IOException {

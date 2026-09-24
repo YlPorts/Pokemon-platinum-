@@ -8,6 +8,7 @@ capture() {
     adb exec-out screencap -p > smoke-results/final.png || true
     adb logcat -d > smoke-results/logcat.txt || true
     adb shell run-as "$PACKAGE" cat files/game/android_runtime.log > smoke-results/runtime.txt || true
+    adb shell run-as "$PACKAGE" cat files/game/android_performance.log > smoke-results/performance.txt || true
     adb shell run-as "$PACKAGE" cat files/game/android_startup.log > smoke-results/startup.txt || true
 }
 trap capture EXIT
@@ -115,3 +116,8 @@ for path in Path('smoke-results').glob('game*.png'):
 assert valid, 'No rendered game content across captured frames'
 print('PASS: game process remains alive across startup, held touch and native menu')
 PYVERIFY
+
+# A separate file must survive the runtime log and contain actual timing samples.
+adb shell run-as "$PACKAGE" cat files/game/android_performance.log > smoke-results/performance.txt
+rg -q 'SESSION Android 0.3.5 GPU=' smoke-results/performance.txt
+rg -q 'Android timing:.*compose=' smoke-results/performance.txt

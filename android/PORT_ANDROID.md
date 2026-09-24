@@ -1,4 +1,4 @@
-# Pokémon Platinum Android 0.3.1
+# Pokémon Platinum Android 0.3.5
 
 Port nativo basado en `pokeplatinum-pcport-source.zip` proporcionado por el usuario.
 Aplicación: `org.pokeplatinum.android`. ABI de distribución: `arm64-v8a`.
@@ -145,3 +145,24 @@ carga de CPU/GPU de retrasos del limitador; no son mediciones de GPU aisladas.
 Pruebas de reloj: 20 combinaciones de límite/VSync, pausas breves, reanudación,
 señales EINTR y límite de presentación a 30. Pruebas de uniformes: conservación
 exacta de datos, cambios animados, reinicio y saturación de caché.
+
+## Trabajo de CPU y diagnóstico 0.3.5
+
+- Las listas de sprites por línea/prioridad se calculan una vez por composición.
+  Mantienen el orden OAM, objetos afines/dobles, ventanas, recorte y envoltura Y.
+  Se omite la conversión de líneas sin objetos. No se reduce resolución ni efectos.
+- Texturas y paletas repetidas reutilizan su CRC únicamente después de comparar
+  todos los bytes: las escrituras en VRAM dentro del mismo fotograma se detectan.
+  Caché acotada (hasta 4 MiB entre datos de texturas y paletas).
+- La línea de mosaico de OBJ deja de usar una variable sin inicializar. Esto no
+  añade una implementación nueva del efecto mosaico.
+- El proceso Android aislado termina después de vaciar stdio, sin ejecutar
+  destructores globales mientras siguen activos los hilos de Nitro. Evita esa
+  carrera de cierre; no demuestra el origen de todos los fallos FORTIFY.
+- Registro de rendimiento independiente, cada dos segundos, con sesión, GPU,
+  VBlank, FPS presentados, trabajo/espera/swap y composición 2D+interfaz.
+  Se conserva entre arranques y rota al superar 64 KiB. El diagnóstico lee
+  el final de los registros. FPS del menú mide presentaciones completas.
+- Prueba diferencial con las funciones reales de OBJ (400 estados OAM
+  aleatorios de ambas pantallas), ASan/UBSan y validación de cambios de VRAM.
+  Las pruebas de emulador no equivalen a medir zonas 3D en el Samsung SM-A155M.
