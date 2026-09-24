@@ -19,7 +19,16 @@ int main(void) {
   ADLayout a=ad_layout(w,h,mode,swap,field,show,aspect,size);
   bounds(a.top,w,h); bounds(a.touch,w,h);
   for(int i=0;i<15;i++) bounds(a.keys[i],w,h);
-  assert(a.top.w>0 && a.top.h>0);
+  if(a.single) {
+   assert((a.top.w>0) != (a.touch.w>0));
+   ADRect shown=a.top.w>0?a.top:a.touch;
+   assert(fabsf(shown.x+shown.w/2-w/2.0f)<.01f);
+   if(w>h) {
+    assert(fabsf(shown.y+shown.h/2-h/2.0f)<.01f);
+    assert(fabsf(shown.w-w)<.01f || fabsf(shown.h-h)<.01f);
+    if(field && !swap && aspect==0) assert(fabsf(shown.y)<.01f);
+   }
+  } else assert(a.top.w>0 && a.top.h>0);
   if(a.touch.w>0) {
    assert(fabsf(a.touch.w/a.touch.h-4.0f/3.0f)<.001f);
    int x,y;
@@ -27,12 +36,11 @@ int main(void) {
    assert(abs(x-128)<=1 && abs(y-96)<=1);
    assert(ad_stylus(&a,a.touch.x,a.touch.y,&x,&y) && x==0 && y==0);
    assert(!ad_stylus(&a,a.touch.x+a.touch.w,a.touch.y,&x,&y));
-   if(mode==4) for(int k=0;k<12;k++) if(overlap(a.touch,a.keys[k])) { fprintf(stderr,"overlap %d %d mode%d swap%d field%d show%d aspect%d size%d key%d\n",w,h,mode,swap,field,show,aspect,size,k); abort(); }
   }
   if(!a.expanded) assert(fabsf(a.aspect-4.0f/3.0f)<.001f);
   else if(aspect==1) assert(fabsf(a.aspect-16.0f/9.0f)<.001f);
   else if(aspect==2) assert(fabsf(a.aspect-21.0f/9.0f)<.001f);
-  if(!field || mode==0 || mode==2 || mode==3 || swap) assert(a.touch.w>0);
+  if(!a.single || swap) assert(a.touch.w>0);
   for(int k=0;k<8;k++) { ADRect r=a.keys[k]; assert(ad_pad_hit(&a,r.x+r.w/2,r.y+r.h/2)==(1<<k)); }
   ADRect u=a.keys[AD_UP];float c=u.w,cx=u.x+c/2,cy=u.y+c*1.5f;
   assert(ad_pad_hit(&a,cx+c*.8f,cy-c*.8f)==((1<<AD_UP)|(1<<AD_RIGHT)));

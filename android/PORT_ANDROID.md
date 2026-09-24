@@ -67,3 +67,23 @@ La selección de ROM sigue usando un archivo `.nds` de Pokémon Platinum USA.
   secundaria solo al explorar en horizontal. La pantalla vuelve en menús.
 - Un dedo de control y otro de lápiz pueden funcionar simultáneamente.
 - Misma firma que 0.3.0: instalar encima conservando ROM y partida.
+
+## 0.3.2 — una pantalla y renderizador Android
+
+Panorámica y Automática muestran una sola pantalla. En horizontal, los controles
+flotan sobre toda la superficie; las escenas 4:3 se amplían y centran sin estirar.
+En vertical se conserva una zona inferior para los dedos. Los otros tres modos
+siguen mostrando ambas pantallas, a elección del usuario.
+
+La selección sigue el motor principal de DS, con indicaciones explícitas para
+la Pokéball y Sí/No de Rowan, el teclado y la selección de comandos, movimientos,
+objetivos y Sí/No del combate. SWAP permite ver la otra pantalla y AUTO restablece
+la selección. Un cambio de escena o pantalla solicitada cancela el cambio manual.
+R sigue siendo el botón DS; en PC su atajo anterior alternaba la superposición
+táctil al explorar, no era un selector automático completo. No se afirma cobertura
+exhaustiva de todos los minijuegos: SWAP mantiene accesibles las dos pantallas.
+
+En los dos puntos de dibujo 3D se enlaza el shader antes de enviar sus uniformes;
+se eliminan las consultas GL_CURRENT_PROGRAM y enlaces redundantes por uniforme.
+No se altera la velocidad de la simulación ni se promete un número de FPS.
+La mejora en un teléfono físico necesita medición allí.

@@ -6,7 +6,7 @@ typedef struct { float x, y, w, h; } ADRect;
 typedef struct {
     ADRect top, touch, keys[15];
     float width, height, unit, aspect;
-    int landscape, expanded;
+    int landscape, expanded, single;
 } ADLayout;
 enum { AD_A, AD_B, AD_X, AD_Y, AD_L, AD_R, AD_START, AD_SELECT,
        AD_UP, AD_DOWN, AD_LEFT, AD_RIGHT, AD_MENU, AD_SWAP, AD_TOUCH };
@@ -50,6 +50,19 @@ static inline ADLayout ad_layout(float w,float h,int mode,int swapped,int field,
     float y=margin+bar+margin, bottom=a.landscape?h-margin:cy-unit*2.07f;
     ADRect area=ad_rect(margin,y,w-2*margin,bottom-y);
     float gap=margin*.65f;
+    a.single=(mode==1 || mode==4);
+    if(a.single) {
+        /* Toolbar floats over the viewport. Portrait keeps a thumb area below. */
+        area=ad_rect(0,0,w,a.landscape?h:fmaxf(h*.45f,cy-unit*2.07f));
+        a.expanded=field && !swapped;
+        float ratio=4.0f/3.0f;
+        if(a.expanded) ratio=aspectMode==1?16.0f/9.0f:aspectMode==2?21.0f/9.0f:
+            fmaxf(4.0f/3.0f,area.w/area.h);
+        ADRect screen=ad_fit(area,ratio);
+        if(swapped) a.touch=screen; else a.top=screen;
+        a.aspect=ratio;
+        return a;
+    }
     a.expanded=field && !swapped && (mode==1 || mode==4);
     float aspect=4.0f/3.0f;
     if(a.expanded) {

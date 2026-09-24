@@ -2,6 +2,7 @@
 #include "android_layout.h"
 extern SIM_config_type s_SIM_config;
 extern void SIM_AndroidToggleTouchScreen(void);
+extern void SIM_AndroidResumeAutomatic(void);
 static ADLayout s_androidLayout;
 static unsigned short s_androidTouchButtons;
 static struct { SDL_FingerID id; float x,y; unsigned short button; int role; bool active; } s_androidFingers[10];
@@ -33,11 +34,12 @@ static void SIM_GUI_AndroidProcessTouchEvent(SDL_Event *e) {
     if(e->type==SDL_FINGERDOWN && slot<0) {
         if(ad_inside(s_androidLayout.keys[AD_MENU],x,y)) { SIM_GUI_Toggle(); SIM_GUI_AndroidResetInput(); return; }
         if(ad_inside(s_androidLayout.keys[AD_SWAP],x,y)) {
+            if(s_androidLayout.single) { SIM_AndroidToggleTouchScreen(); SIM_GUI_AndroidResetInput(); return; }
             s_SIM_config.swapScreens=!s_SIM_config.swapScreens;
             SIM_Config_SaveConfigFile(&s_SIM_config); SIM_GUI_AndroidResetInput(); return;
         }
         if(ad_inside(s_androidLayout.keys[AD_TOUCH],x,y)) {
-            if(s_androidLayout.expanded && s_androidLayout.landscape) SIM_AndroidToggleTouchScreen();
+            if(s_androidLayout.single) SIM_AndroidResumeAutomatic();
             SIM_GUI_AndroidResetInput(); return;
         }
         slot=freeSlot;
@@ -62,7 +64,7 @@ void SIM_GUI_AndroidTouchMain(void) {
     if(SIM_GUI_State) return;
     ImDrawList *draw=igGetForegroundDrawList_ViewportPtr(igGetMainViewport());
     float opacity=(float)s_SIM_config.androidControlOpacity/100;
-    const char *labels[15]={"A","B","X","Y","L","R","START","SELECT","","","","","MENU","SWAP","DS"};
+    const char *labels[15]={"A","B","X","Y","L","R","START","SELECT","","","","","MENU","SWAP","AUTO"};
     for(int i=0;i<15;i++) {
         ADRect r=s_androidLayout.keys[i];
         bool pressed=i<12 && (s_androidTouchButtons&(1<<i));

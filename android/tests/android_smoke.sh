@@ -72,6 +72,17 @@ adb shell pidof "$PACKAGE:game"
 adb shell input keyevent 4
 sleep 10
 adb exec-out screencap -p > smoke-results/game-later.png
+# One-screen manual override and return to game-driven selection.
+adb shell input tap 270 30
+sleep 2
+adb exec-out screencap -p > smoke-results/swapped.png
+adb shell input tap 500 30
+sleep 2
+adb exec-out screencap -p > smoke-results/automatic.png
+adb logcat -d > smoke-results/screen-policy.txt
+rg -q 'Android screen: top' smoke-results/screen-policy.txt
+rg -q 'Android screen: touch' smoke-results/screen-policy.txt
+
 adb shell pidof "$PACKAGE:game"
 # Rotate the actual running activity through the emulator accelerometer.
 adb emu sensor set acceleration 9.8:0:0

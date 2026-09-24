@@ -120,7 +120,7 @@ public final class LauncherActivity extends Activity {
         content.addView(options, buttonParams);
 
         layoutChoice = addChoice(content, "Pantallas", new String[]{
-                "Dos verticales", "Dos horizontales", "Panorámica", "Principal grande + secundaria", "Adaptativa (recomendada)"
+                "Dos verticales", "Dos horizontales", "Una pantalla panorámica", "Principal grande + secundaria", "Una pantalla automática (recomendada)"
         }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("layout_v031", 4));
         fpsChoice = addChoice(content, "Límite de FPS", new String[]{
                 "30", "60", "90", "120", "Sin límite"
@@ -147,7 +147,7 @@ public final class LauncherActivity extends Activity {
                 "20 %", "35 %", "50 %"
         }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("opacity", 1));
         swapChoice = new android.widget.CheckBox(this);
-        swapChoice.setText("Intercambiar pantallas");
+        swapChoice.setText("Intercambiar en modos de dos pantallas");
         swapChoice.setChecked(getSharedPreferences("display_options", MODE_PRIVATE).getBoolean("swap", false));
         content.addView(swapChoice);
 
@@ -320,7 +320,10 @@ public final class LauncherActivity extends Activity {
 
     private void copyDiagnostics() {
         worker.execute(() -> {
-            StringBuilder report = new StringBuilder("PLATINUM ANDROID 0.3.0\n");
+            String version = "desconocida";
+            try { version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
+            catch (android.content.pm.PackageManager.NameNotFoundException ignored) { }
+            StringBuilder report = new StringBuilder("PLATINUM ANDROID " + version + "\n");
             report.append(android.os.Build.MANUFACTURER).append(' ')
                     .append(android.os.Build.MODEL).append(" · Android ")
                     .append(android.os.Build.VERSION.RELEASE).append('\n');

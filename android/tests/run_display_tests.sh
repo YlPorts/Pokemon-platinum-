@@ -14,3 +14,5 @@ gcc -std=gnu11 -w -DSDK_PORT -DSDK_BUILD_ANDROID -DSDK_ARM9 -DSDK_FINALROM -DNNS
  -I"$OUT/include" -I"$NTR/include" -I"$TEST_DIR/../display" \
  "$TEST_DIR/display_touch_test.c" -Wl,--gc-sections -lm -o "$OUT/touch"
 "$OUT/touch"
+gcc -std=c11 -I"$TEST_DIR/../display" "$TEST_DIR/display_policy_test.c" -o "$OUT/policy"
+"$OUT/policy"

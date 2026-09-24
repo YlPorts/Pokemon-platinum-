@@ -5,10 +5,10 @@ void GUI_AppConfigMain(bool *p_open) {
     igBegin("Pantallas y controles",p_open,ImGuiWindowFlags_NoCollapse);
     bool changed=false;
     int layout=s_SIM_config.screenLayout;
-    const char *layouts[]={"Dos verticales","Panoramica","Dos horizontales","Principal + secundaria","Adaptativa"};
+    const char *layouts[]={"Dos verticales","Una pantalla panoramica","Dos horizontales","Principal + secundaria","Una pantalla automatica"};
     if(igCombo_Str_arr("Pantallas",&layout,layouts,5,5)) { s_SIM_config.screenLayout=layout; changed=true; }
     bool swap=s_SIM_config.swapScreens;
-    if(igCheckbox("Intercambiar pantallas",&swap)) { s_SIM_config.swapScreens=swap; changed=true; }
+    if(layout!=1 && layout!=4 && igCheckbox("Intercambiar pantallas",&swap)) { s_SIM_config.swapScreens=swap; changed=true; }
     bool wide=s_SIM_config.widescreenMode!=2;
     if(igCheckbox("Panoramica en el mundo 3D",&wide)) { s_SIM_config.widescreenMode=wide?0:2; changed=true; }
     const char *aspects[]={"Adaptado a pantalla","16:9","21:9"};
@@ -23,7 +23,7 @@ void GUI_AppConfigMain(bool *p_open) {
     if(igCombo_Str_arr("FPS",&fps,fpsNames,5,5)) { const int values[]={30,60,90,120,60}; s_SIM_config.capFrameRate=fps!=4; s_SIM_config.targetFPS=values[fps]; changed=true; }
     bool sync=s_SIM_config.vsyncInterval!=0;
     if(igCheckbox("VSync",&sync)) { s_SIM_config.vsyncInterval=sync?1:0; SDL_GL_SetSwapInterval(sync?1:0); changed=true; }
-    igTextWrapped("SWAP intercambia las pantallas. DS muestra u oculta la secundaria al explorar en horizontal. En menus y combates se conservan ambas pantallas.");
+    igTextWrapped("Una pantalla: cambio automatico segun el juego. SWAP muestra la otra; AUTO vuelve al cambio automatico. R conserva su funcion de DS.");
     igEnd();
     if(changed) { SIM_GUI_AndroidResetInput(); SIM_Config_SaveConfigFile(&s_SIM_config); }
 }

@@ -5,17 +5,18 @@
 #include "android_layout.h"
 static bool SIM_GUI_State;
 SIM_config_type s_SIM_config;
-static int saves,toggles;
+static int saves,toggles,resumes;
 void SIM_GUI_Toggle(void) { SIM_GUI_State=!SIM_GUI_State; }
 void SIM_Config_SaveConfigFile(SIM_config_type *p) { saves++; }
 void SIM_AndroidToggleTouchScreen(void) { toggles++; }
+void SIM_AndroidResumeAutomatic(void) { resumes++; }
 #include "android_controls.inc"
 static void finger(int type,int id,float x,float y) {
  SDL_Event e={0}; e.type=type;e.tfinger.fingerId=id;e.tfinger.x=x/s_androidLayout.width;e.tfinger.y=y/s_androidLayout.height;
  SIM_GUI_AndroidProcessTouchEvent(&e);
 }
 int main(void) {
- ADLayout a=ad_layout(540,960,4,0,0,1,0,100); SIM_GUI_AndroidSetLayout(&a);
+ ADLayout a=ad_layout(540,960,4,1,0,1,0,100); SIM_GUI_AndroidSetLayout(&a);
  ADRect b=a.keys[AD_B],r=a.keys[AD_R],t=a.touch; int x,y;
  finger(SDL_FINGERDOWN,1,b.x+b.w/2,b.y+b.h/2);
  assert(SIM_GUI_AndroidGetInputMask()==(1<<AD_B));
@@ -34,10 +35,10 @@ int main(void) {
  ADLayout landscape=ad_layout(960,540,4,0,0,1,0,100);SIM_GUI_AndroidSetLayout(&landscape);
  assert(!SIM_GUI_AndroidGetInputMask() && !SIM_GUI_AndroidStylus(&x,&y));
  a=landscape;ADRect k=a.keys[AD_SWAP];finger(SDL_FINGERDOWN,4,k.x+k.w/2,k.y+k.h/2);
- assert(s_SIM_config.swapScreens && saves==1 && !SIM_GUI_AndroidStylus(&x,&y));
- k=a.keys[AD_TOUCH];finger(SDL_FINGERDOWN,5,k.x+k.w/2,k.y+k.h/2);assert(toggles==0);
+ assert(toggles==1 && saves==0 && !SIM_GUI_AndroidStylus(&x,&y));
+ k=a.keys[AD_TOUCH];finger(SDL_FINGERDOWN,5,k.x+k.w/2,k.y+k.h/2);assert(resumes==1);
  a=ad_layout(960,540,4,0,1,1,0,100);SIM_GUI_AndroidSetLayout(&a);
- k=a.keys[AD_TOUCH];finger(SDL_FINGERDOWN,6,k.x+k.w/2,k.y+k.h/2);assert(toggles==1);
+ k=a.keys[AD_TOUCH];finger(SDL_FINGERDOWN,6,k.x+k.w/2,k.y+k.h/2);assert(resumes==2);
  ADRect up=a.keys[AD_UP];float cx=up.x+up.w/2,cy=up.y+up.h*1.5f;
  finger(SDL_FINGERDOWN,7,cx,cy);assert(!SIM_GUI_AndroidGetInputMask());
  finger(SDL_FINGERMOTION,7,cx,cy-up.h);assert(SIM_GUI_AndroidGetInputMask()==(1<<AD_UP));
