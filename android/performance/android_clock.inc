@@ -34,7 +34,7 @@ static void AndroidPaceVBlank() {
         s_androidTimingStart=now;
 #ifdef SDK_BUILD_ANDROID
         char header[512];
-        snprintf(header,sizeof(header),"SESSION Android 0.3.5 GPU=%s GL=%s",glGetString(GL_RENDERER),glGetString(GL_VERSION));
+        snprintf(header,sizeof(header),"SESSION Android 0.3.6 GPU=%s GL=%s",glGetString(GL_RENDERER),glGetString(GL_VERSION));
         AndroidTimingWrite(header);
 #endif
     }

@@ -1,4 +1,4 @@
-# Pokémon Platinum Android 0.3.5
+# Pokémon Platinum Android 0.3.6
 
 Port nativo basado en `pokeplatinum-pcport-source.zip` proporcionado por el usuario.
 Aplicación: `org.pokeplatinum.android`. ABI de distribución: `arm64-v8a`.
@@ -166,3 +166,22 @@ exacta de datos, cambios animados, reinicio y saturación de caché.
 - Prueba diferencial con las funciones reales de OBJ (400 estados OAM
   aleatorios de ambas pantallas), ASan/UBSan y validación de cambios de VRAM.
   Las pruebas de emulador no equivalen a medir zonas 3D en el Samsung SM-A155M.
+
+## Órdenes 3D 0.3.6
+
+- Se eliminan 31 sitios de malloc/free de mensajes GX inmediatos en Android.
+  Son llamadas síncronas y el mensaje permanece vivo hasta terminar su consumo.
+- Las cuatro variantes de DMA GX usan la dirección nativa completa y consumen
+  la lista directamente. Los callbacks asíncronos se ejecutan después del consumo.
+- Caché de interpretación de listas: comparación exacta de bytes, hasta 32
+  entradas y aproximadamente 34 MiB como máximo incluyendo capacidad reservada.
+  Listas grandes usan la ruta directa. Se siguen ejecutando transformaciones,
+  iluminación, vértices y texturas de cada fotograma. No se saltan fotogramas.
+- Cada replay usa un mensaje privado porque el intérprete modifica VTX parciales.
+- Perfil: tiempo de aplicación, listas GX y envíos de dibujo (intervalos anidados,
+  no sumarlos), aciertos y reinterpretaciones de listas.
+- Prueba diferencial con código real: 250 listas mixtas, replays, cambios en
+  memoria, límites, entradas truncadas y reemplazo de caché.
+- El emulador añade un arranque en Pueblo Hojaverde con partida de prueba. Los
+  hooks se inyectan DESPUÉS de empaquetar el código y compilar ARM64; no existen
+  en el APK entregado. Rendimiento en emulador no equivale al Samsung físico.

@@ -119,5 +119,32 @@ PYVERIFY
 
 # A separate file must survive the runtime log and contain actual timing samples.
 adb shell run-as "$PACKAGE" cat files/game/android_performance.log > smoke-results/performance.txt
-rg -q 'SESSION Android 0.3.5 GPU=' smoke-results/performance.txt
+rg -q 'SESSION Android 0.3.6 GPU=' smoke-results/performance.txt
 rg -q 'Android timing:.*compose=' smoke-results/performance.txt
+
+# Enter the actual outdoor field in an isolated test build and fresh debug save.
+adb shell am force-stop "$PACKAGE"
+adb shell run-as "$PACKAGE" touch files/game/android_field_test
+adb shell am start -n "$PACKAGE/.LauncherActivity"
+sleep 5
+bash /tmp/platinum-tap.sh
+sleep 35
+adb shell pidof "$PACKAGE:game"
+adb exec-out screencap -p > smoke-results/field-before.png
+adb shell input swipe 55 815 55 815 1500
+sleep 8
+adb exec-out screencap -p > smoke-results/field-after.png
+adb shell run-as "$PACKAGE" cat files/game/android_runtime.log > smoke-results/field-runtime.txt
+adb shell run-as "$PACKAGE" cat files/game/android_performance.log > smoke-results/field-performance.txt
+rg -q 'Android field test: Twinleaf Town' smoke-results/field-runtime.txt
+rg -q 'Android app:.*lists_cached=[1-9]' smoke-results/field-runtime.txt
+python3 - <<'PYFIELD'
+from PIL import Image
+im=Image.open('smoke-results/field-before.png').convert('RGB')
+w,h=im.size
+area=im.crop((0,h//10,w,h*3//5))
+green=sum(1 for r,g,b in area.getdata() if g>r*1.15 and g>b*1.05 and g>50)
+assert green>3000, ('outdoor scene not rendered',green)
+print('PASS: outdoor Twinleaf scene rendered with cached 3D commands')
+PYFIELD
+adb shell pidof "$PACKAGE:game"

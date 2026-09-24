@@ -14,6 +14,7 @@ on:
       - 'android/repair_performance.py'
       - 'android/repair_timing.py'
       - 'android/repair_workload.py'
+      - 'android/repair_commands.py'
       - 'android/performance/**'
       - 'android/display/**'
       - 'android/package_source.py'
@@ -78,7 +79,7 @@ jobs:
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's/minSdk 23/minSdk 24/' \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
-          sed -i "s/versionCode 1/versionCode 19/; s/versionName '0.1.0'/versionName '0.3.5'/" \
+          sed -i "s/versionCode 1/versionCode 20/; s/versionName '0.1.0'/versionName '0.3.6'/" \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
           cp android/overrides/*.java \
             _source/pokeplatinum-pcport-source/android/app/src/main/java/org/pokeplatinum/android/
@@ -165,6 +166,7 @@ jobs:
           python3 android/repair_performance.py "$root"
           python3 android/repair_timing.py "$root"
           python3 android/repair_workload.py "$root"
+          python3 android/repair_commands.py "$root"
       - name: Restore omitted source assets
         run: |
           upstream='https://raw.githubusercontent.com/pret/pokeplatinum/c248fb3f8cc9934ded800e489567c5c0eeee92eb'
@@ -190,6 +192,7 @@ jobs:
         run: |
           bash android/tests/run_display_tests.sh _source/pokeplatinum-pcport-source
           bash android/tests/run_performance_tests.sh _source/pokeplatinum-pcport-source
+          python3 android/tests/commands_test.py _source/pokeplatinum-pcport-source
       - name: Verify native ABI, heaps, SDAT and GLES
         run: |
           bash android/tests/run_native_tests.sh _source/pokeplatinum-pcport-source
@@ -222,7 +225,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Pokemon-Platinum-Android-source
-          path: Pokemon-Platinum-Android-v0.3.5-source.zip
+          path: Pokemon-Platinum-Android-v0.3.6-source.zip
           if-no-files-found: error
 
   android-smoke:
@@ -240,7 +243,7 @@ jobs:
           key: platinum-emulator-source-35926190320-v1
       - name: Extract prepared source
         run: |
-          unzip -q Pokemon-Platinum-Android-v0.3.5-source.zip -d incoming-source
+          unzip -q Pokemon-Platinum-Android-v0.3.6-source.zip -d incoming-source
           mkdir -p pokeplatinum-android
           # Replace source by content; keep only generated build directories.
           rsync -rc --delete --exclude=build_android --exclude=.gradle --exclude=build --exclude=jniLibs --exclude=third_party/android/ incoming-source/pokeplatinum-android/ pokeplatinum-android/
@@ -259,6 +262,8 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;27.2.12479018' 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
+      - name: Add emulator-only outdoor test hooks
+        run: python3 android/tests/prepare_field_test.py pokeplatinum-android
       - name: Compile emulator ABI
         run: gradle -p pokeplatinum-android/android assembleDebug -PandroidAbi=x86_64 --rerun-tasks --stacktrace
       - name: Enable KVM
