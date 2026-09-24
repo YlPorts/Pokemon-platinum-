@@ -47,8 +47,12 @@ public final class LauncherActivity extends Activity {
     private Spinner scaleChoice;
     private Spinner syncChoice;
     private Spinner wideChoice;
+    private Spinner aspectChoice;
+    private Spinner orientationChoice;
+    private Spinner controlSizeChoice;
+    private Spinner opacityChoice;
     private android.widget.CheckBox swapChoice;
-    private static final String[] LAYOUT_VALUES = {"vertical", "horizontal", "widescreen", "large"};
+    private static final String[] LAYOUT_VALUES = {"vertical", "horizontal", "widescreen", "large", "adaptive"};
     private static final String[] FPS_VALUES = {"30", "60", "90", "120", "0"};
 
     @Override
@@ -56,6 +60,7 @@ public final class LauncherActivity extends Activity {
         super.onCreate(state);
         gameDir = new File(getFilesDir(), "game");
         buildScreen();
+        if (getSharedPreferences("display_options", MODE_PRIVATE).contains("layout_v031")) restoreNativeOptions();
         setBusy(true, "Preparando los archivos incluidos…");
         worker.execute(() -> {
             String error = "";
@@ -115,8 +120,8 @@ public final class LauncherActivity extends Activity {
         content.addView(options, buttonParams);
 
         layoutChoice = addChoice(content, "Pantallas", new String[]{
-                "Dos verticales", "Dos horizontales", "Principal panorámica", "Principal grande + secundaria"
-        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("layout", 0));
+                "Dos verticales", "Dos horizontales", "Panorámica", "Principal grande + secundaria", "Adaptativa (recomendada)"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("layout_v031", 4));
         fpsChoice = addChoice(content, "Límite de FPS", new String[]{
                 "30", "60", "90", "120", "Sin límite"
         }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("fps", 1));
@@ -127,8 +132,20 @@ public final class LauncherActivity extends Activity {
                 "Activada", "Desactivada"
         }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("sync", 0));
         wideChoice = addChoice(content, "Expansión 3D panorámica", new String[]{
-                "Automática", "Siempre activa", "Desactivada"
-        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("wide", 0));
+                "Activada en el mundo 3D", "Desactivada"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("wide_v031", 0));
+        aspectChoice = addChoice(content, "Formato panorámico", new String[]{
+                "Adaptado a la pantalla", "16:9", "Ultrawide 21:9"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("aspect", 0));
+        orientationChoice = addChoice(content, "Orientación", new String[]{
+                "Al girar el teléfono", "Vertical", "Horizontal"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("orientation", 0));
+        controlSizeChoice = addChoice(content, "Tamaño de botones", new String[]{
+                "Compactos", "Medianos", "Grandes"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("controlSize", 1));
+        opacityChoice = addChoice(content, "Opacidad de botones", new String[]{
+                "20 %", "35 %", "50 %"
+        }, getSharedPreferences("display_options", MODE_PRIVATE).getInt("opacity", 1));
         swapChoice = new android.widget.CheckBox(this);
         swapChoice.setText("Intercambiar pantallas");
         swapChoice.setChecked(getSharedPreferences("display_options", MODE_PRIVATE).getBoolean("swap", false));
@@ -169,14 +186,19 @@ public final class LauncherActivity extends Activity {
         try {
             saveOptions();
             getSharedPreferences("display_options", MODE_PRIVATE).edit()
-                    .putInt("layout", layoutChoice.getSelectedItemPosition())
+                    .putInt("layout_v031", layoutChoice.getSelectedItemPosition())
                     .putInt("fps", fpsChoice.getSelectedItemPosition())
                     .putInt("scale", scaleChoice.getSelectedItemPosition())
-                    .putInt("wide", wideChoice.getSelectedItemPosition())
+                    .putInt("wide_v031", wideChoice.getSelectedItemPosition())
+                    .putInt("aspect", aspectChoice.getSelectedItemPosition())
+                    .putInt("orientation", orientationChoice.getSelectedItemPosition())
+                    .putInt("controlSize", controlSizeChoice.getSelectedItemPosition())
+                    .putInt("opacity", opacityChoice.getSelectedItemPosition())
                     .putBoolean("swap", swapChoice.isChecked())
                     .putInt("sync", syncChoice.getSelectedItemPosition()).apply();
             returnedFromGame = true;
-            startActivity(new Intent(this, GameActivity.class));
+            startActivity(new Intent(this, GameActivity.class)
+                    .putExtra("orientation", orientationChoice.getSelectedItemPosition()));
         } catch (IOException exception) {
             status.setText("No se pudieron guardar las opciones: " + exception.getMessage());
         }
@@ -188,7 +210,10 @@ public final class LauncherActivity extends Activity {
         values.put("InternalResolutionScale", String.valueOf(scaleChoice.getSelectedItemPosition() + 1));
         values.put("WindowWidth", "0");
         values.put("WindowHeight", "0");
-        values.put("WidescreenMode", String.valueOf(wideChoice.getSelectedItemPosition()));
+        values.put("WidescreenMode", wideChoice.getSelectedItemPosition() == 0 ? "0" : "2");
+        values.put("AndroidWideAspect", String.valueOf(aspectChoice.getSelectedItemPosition()));
+        values.put("AndroidControlSize", new String[]{"85", "100", "115"}[controlSizeChoice.getSelectedItemPosition()]);
+        values.put("AndroidControlOpacity", new String[]{"20", "35", "50"}[opacityChoice.getSelectedItemPosition()]);
         values.put("SwapScreens", swapChoice.isChecked() ? "true" : "false");
         values.put("VsyncInterval", syncChoice.getSelectedItemPosition() == 0 ? "1" : "0");
         int fpsIndex = fpsChoice.getSelectedItemPosition();
@@ -241,7 +266,36 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (returnedFromGame && bundledAssetsReady) updateReadyState();
+        if (returnedFromGame && bundledAssetsReady) { restoreNativeOptions(); updateReadyState(); }
+    }
+
+    private void restoreNativeOptions() {
+        // Native menu and launcher edit the same file; don't overwrite in-game changes.
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.FileReader(new File(gameDir, "sim_config.ini")))) {
+            String line;
+            boolean general = false;
+            boolean capped = true;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.startsWith("[")) { general = line.equals("[General]"); continue; }
+                if (!general || !line.contains("=")) continue;
+                String[] pair = line.split("=", 2);
+                String key = pair[0].trim(), value = pair[1].trim();
+                if (key.equals("CapFrameRate")) { capped = !value.equals("false"); if (!capped) fpsChoice.setSelection(4); }
+                if (key.equals("TargetFPS") && capped) { for (int i=0;i<4;i++) if (value.equals(FPS_VALUES[i])) fpsChoice.setSelection(i); }
+                if (key.equals("InternalResolutionScale")) scaleChoice.setSelection(Math.max(0, Math.min(3, Integer.parseInt(value)-1)));
+                if (key.equals("ScreenLayout")) for (int i = 0; i < LAYOUT_VALUES.length; i++) {
+                    if (value.equals(LAYOUT_VALUES[i])) layoutChoice.setSelection(i);
+                }
+                if (key.equals("SwapScreens")) swapChoice.setChecked(value.equals("true"));
+                if (key.equals("WidescreenMode")) wideChoice.setSelection(value.equals("2") ? 1 : 0);
+                if (key.equals("AndroidWideAspect")) aspectChoice.setSelection(Math.max(0, Math.min(2, Integer.parseInt(value))));
+                if (key.equals("AndroidControlSize")) controlSizeChoice.setSelection(Math.max(0, Math.min(2, (Integer.parseInt(value)-85)/15)));
+                if (key.equals("AndroidControlOpacity")) opacityChoice.setSelection(Math.max(0, Math.min(2, Math.round((Integer.parseInt(value)-20)/15f))));
+                if (key.equals("VsyncInterval")) syncChoice.setSelection(value.equals("0") ? 1 : 0);
+            }
+        } catch (IOException | NumberFormatException ignored) { }
     }
 
     private void updateReadyState() {

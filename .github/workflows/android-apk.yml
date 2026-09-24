@@ -9,6 +9,8 @@ on:
       - 'android/tests/**'
       - 'android/patch_native.py'
       - 'android/repair_runtime.py'
+      - 'android/repair_display.py'
+      - 'android/display/**'
       - 'android/package_source.py'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
@@ -71,7 +73,7 @@ jobs:
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's/minSdk 23/minSdk 24/' \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
-          sed -i "s/versionCode 1/versionCode 14/; s/versionName '0.1.0'/versionName '0.3.0'/" \
+          sed -i "s/versionCode 1/versionCode 15/; s/versionName '0.1.0'/versionName '0.3.1'/" \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
           cp android/overrides/*.java \
             _source/pokeplatinum-pcport-source/android/app/src/main/java/org/pokeplatinum/android/
@@ -153,6 +155,7 @@ jobs:
           PY
           python3 android/patch_native.py "$root"
           python3 android/repair_runtime.py "$root"
+          python3 android/repair_display.py "$root"
       - name: Restore omitted source assets
         run: |
           upstream='https://raw.githubusercontent.com/pret/pokeplatinum/c248fb3f8cc9934ded800e489567c5c0eeee92eb'
@@ -167,6 +170,9 @@ jobs:
           test "$(git hash-object "$root/res/graphics/field_sprites/frame_sequences/save.bin")" = 428be0d81e3f0831dcf6ff8d671a6d05b0814abc
       - name: Compile APK
         run: gradle -p _source/pokeplatinum-pcport-source/android assembleDebug --stacktrace
+      - name: Verify adaptive layouts
+        run: |
+          bash android/tests/run_display_tests.sh _source/pokeplatinum-pcport-source
       - name: Verify native ABI, heaps, SDAT and GLES
         run: |
           bash android/tests/run_native_tests.sh _source/pokeplatinum-pcport-source
@@ -199,7 +205,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Pokemon-Platinum-Android-source
-          path: Pokemon-Platinum-Android-v0.3.0-source.zip
+          path: Pokemon-Platinum-Android-v0.3.1-source.zip
           if-no-files-found: error
 
   android-smoke:
@@ -217,7 +223,7 @@ jobs:
           key: platinum-emulator-source-35926190320-v1
       - name: Extract prepared source
         run: |
-          unzip -q Pokemon-Platinum-Android-v0.3.0-source.zip -d incoming-source
+          unzip -q Pokemon-Platinum-Android-v0.3.1-source.zip -d incoming-source
           mkdir -p pokeplatinum-android
           # Replace source by content; keep only generated build directories.
           rsync -rc --delete --exclude=build_android --exclude=.gradle --exclude=build --exclude=jniLibs --exclude=third_party/android/ incoming-source/pokeplatinum-android/ pokeplatinum-android/

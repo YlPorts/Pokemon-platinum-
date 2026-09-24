@@ -7,11 +7,20 @@ import org.libsdl.app.SDLActivity;
 public final class GameActivity extends SDLActivity {
     @Override
     protected void onCreate(Bundle state) {
-        int layout = getSharedPreferences("display_options", MODE_PRIVATE).getInt("layout", 0);
-        setRequestedOrientation(layout == 0
-                ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                : ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        int orientation = getIntent().getIntExtra("orientation", 0);
+        setRequestedOrientation(orientation == 1 ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                : orientation == 2 ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                : ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
         super.onCreate(state);
+    }
+
+    @Override
+    public void setOrientationBis(int width, int height, boolean resizable, String hint) {
+        // SDL's initial DS window dimensions must not override the user's sensor mode.
+        int orientation = getIntent().getIntExtra("orientation", 0);
+        setRequestedOrientation(orientation == 1 ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                : orientation == 2 ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                : ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
     }
 
     @Override

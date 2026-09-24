@@ -1,4 +1,4 @@
-# Pokémon Platinum Android 0.3.0
+# Pokémon Platinum Android 0.3.1
 
 Port nativo basado en `pokeplatinum-pcport-source.zip` proporcionado por el usuario.
 Aplicación: `org.pokeplatinum.android`. ABI de distribución: `arm64-v8a`.
@@ -54,3 +54,16 @@ y captura se guardan en `Android-smoke-results`. Esto no sustituye las pruebas d
 audio, GPU y rendimiento en un teléfono físico ARM64.
 
 La selección de ROM sigue usando un archivo `.nds` de Pokémon Platinum USA.
+
+## Pantallas y controles 0.3.1
+
+- Adaptativa: dos pantallas verticales en retrato y horizontales en paisaje.
+- Mundo exterior 3D: cámara panorámica real, interfaz 2D y pantalla táctil 4:3.
+- Formato del dispositivo, 16:9 o 21:9; los menús y combates conservan ambas pantallas.
+- Giro por sensor o bloqueo vertical/horizontal independiente del diseño.
+- Cruceta DS con diagonales, X/Y/A/B en rombo, L/R, START/SELECT.
+- Tamaño y opacidad configurables. R ya no oculta la pantalla táctil.
+- MENU abre opciones; SWAP intercambia las pantallas; DS oculta/muestra la
+  secundaria solo al explorar en horizontal. La pantalla vuelve en menús.
+- Un dedo de control y otro de lápiz pueden funcionar simultáneamente.
+- Misma firma que 0.3.0: instalar encima conservando ROM y partida.

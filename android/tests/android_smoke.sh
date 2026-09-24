@@ -51,9 +51,8 @@ rg -q 'Primer fotograma' smoke-results/startup.txt
 read -r AX AY < <(python3 - <<'PYCOORD'
 from PIL import Image
 w, h = Image.open('smoke-results/game.png').size
-size = w * .145 if w < h else h * .115
-margin = size * .28
-print(round(w - size * .5 - margin), round(h - size * 1.25 - margin))
+unit = min(w,h) * (.145 if w < h else .135)
+print(round(w - unit*.72), round(h - unit*1.85))
 PYCOORD
 )
 # Advance using a held A touch and check that the native menu is reachable.
@@ -74,6 +73,22 @@ adb shell input keyevent 4
 sleep 10
 adb exec-out screencap -p > smoke-results/game-later.png
 adb shell pidof "$PACKAGE:game"
+# Rotate the actual running activity through the emulator accelerometer.
+adb emu sensor set acceleration 9.8:0:0
+sleep 12
+adb exec-out screencap -p > smoke-results/landscape.png
+adb shell pidof "$PACKAGE:game"
+adb emu sensor set acceleration 0:9.8:0
+sleep 12
+adb exec-out screencap -p > smoke-results/portrait-return.png
+adb shell pidof "$PACKAGE:game"
+python3 - <<'PYROTATE'
+from PIL import Image
+p=Image.open('smoke-results/portrait-return.png'); l=Image.open('smoke-results/landscape.png')
+assert p.height>p.width, ('portrait',p.size)
+assert l.width>l.height, ('landscape',l.size)
+print('PASS: rotation portrait -> landscape -> portrait in the same running game')
+PYROTATE
 python3 - <<'PYVERIFY'
 from PIL import Image
 from pathlib import Path
