@@ -53,7 +53,7 @@ s=s.replace('!s_SIM_config.swapScreens && s_SIM_config.widescreenMode!=2;', 's_S
 main.write_text(s)
 quad=lib/'libraries/sim/src/sim_screenquads.c'
 edit(quad,'extern void SIM_AndroidSetAspect(float aspect);','extern void SIM_AndroidSetAspect(float aspect);\nextern int SIM_AndroidSelectedScreen(void);')
-edit(quad,'    ADLayout a=ad_layout(viewWidth,viewHeight,layout,isSwapped,isOverworld,showTouchOverlay,','    BOOL single=(layout==1 || layout==4);\n    BOOL bottom=single?SIM_AndroidSelectedScreen():isSwapped;\n    ADLayout a=ad_layout(viewWidth,viewHeight,layout,bottom,isOverworld,showTouchOverlay,')
+edit(quad,'    ADLayout a=ad_layout(viewWidth,viewHeight,layout,isSwapped,isOverworld,showTouchOverlay,','    BOOL single=(layout==1 || layout==4);\n    BOOL androidBottom=single?SIM_AndroidSelectedScreen():isSwapped;\n    ADLayout a=ad_layout(viewWidth,viewHeight,layout,androidBottom,isOverworld,showTouchOverlay,')
 edit(quad,'ADLayout next=ad_layout(viewWidth,viewHeight,layout,isSwapped,TRUE,showTouchOverlay,','ADLayout next=ad_layout(viewWidth,viewHeight,layout,FALSE,TRUE,showTouchOverlay,')
 # Lifecycle reset prevents a child menu's selection leaking into its caller.
 p=game('src/overlay_manager.c')
