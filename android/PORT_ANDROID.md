@@ -118,3 +118,30 @@ Las pruebas comparan CRC, rutas de pantalla y 1402 envíos de vértices, además
 de comparar píxeles con el shader GLES real, texturas, alfa, descarte y niebla.
 La aceleración del CRC medida en el ordenador de compilación no representa
 los FPS del teléfono. El rendimiento 3D necesita comprobarse en el dispositivo.
+
+
+## 0.3.4 — reloj y velocidad de personajes
+
+El limitador antiguo utilizaba TargetFPS tanto para la espera intermedia como
+para la presentación. Elegir 30 reducía a la mitad las actualizaciones de campo;
+además se añadía la espera de VSync después de la espera por software y se
+reiniciaba el reloj al terminar. Esto podía retrasar movimiento y animaciones.
+
+Android usa ahora plazos absolutos de VBlank a 60 Hz, compartidos por las dos
+esperas. El campo conserva sus dos VBlank por actualización (30 por segundo).
+El tiempo de presentación cuenta para el siguiente plazo. Los límites de FPS
+solo limitan la presentación; no prometen interpolación ni nuevos fotogramas del
+juego a 90/120. Los antiguos trucos de velocidad 60Fps/60FpsSpeedFix de PC se
+ignoran en Android para conservar el ritmo original, incluso con ajustes previos.
+Un regreso desde segundo plano o una pausa larga no provoca una ráfaga acelerada.
+
+El shader 3D reutiliza uniformes idénticos, incluidos los parámetros de niebla;
+los cambios se comparan byte por byte y se envían cuando corresponda. No se
+modifican resolución, geometría, texturas, efectos ni orden de dibujo.
+
+El diagnóstico registra cada cinco segundos VBlank/s, presentaciones/s, tiempo
+de trabajo, espera del reloj y espera de intercambio. Sirve para distinguir
+carga de CPU/GPU de retrasos del limitador; no son mediciones de GPU aisladas.
+Pruebas de reloj: 20 combinaciones de límite/VSync, pausas breves, reanudación,
+señales EINTR y límite de presentación a 30. Pruebas de uniformes: conservación
+exacta de datos, cambios animados, reinicio y saturación de caché.

@@ -12,6 +12,7 @@ on:
       - 'android/repair_display.py'
       - 'android/repair_single_screen.py'
       - 'android/repair_performance.py'
+      - 'android/repair_timing.py'
       - 'android/performance/**'
       - 'android/display/**'
       - 'android/package_source.py'
@@ -76,7 +77,7 @@ jobs:
             _source/pokeplatinum-pcport-source/tools/android/build-native.sh
           sed -i 's/minSdk 23/minSdk 24/' \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
-          sed -i "s/versionCode 1/versionCode 17/; s/versionName '0.1.0'/versionName '0.3.3'/" \
+          sed -i "s/versionCode 1/versionCode 18/; s/versionName '0.1.0'/versionName '0.3.4'/" \
             _source/pokeplatinum-pcport-source/android/app/build.gradle
           cp android/overrides/*.java \
             _source/pokeplatinum-pcport-source/android/app/src/main/java/org/pokeplatinum/android/
@@ -161,6 +162,7 @@ jobs:
           python3 android/repair_display.py "$root"
           python3 android/repair_single_screen.py "$root"
           python3 android/repair_performance.py "$root"
+          python3 android/repair_timing.py "$root"
       - name: Restore omitted source assets
         run: |
           upstream='https://raw.githubusercontent.com/pret/pokeplatinum/c248fb3f8cc9934ded800e489567c5c0eeee92eb'
@@ -173,6 +175,12 @@ jobs:
           test "$(git hash-object "$model_dir/meson.build")" = 5b48e4fb3257cc74a8323a4db9e64f6eba3b7a30
           test "$(git hash-object "$model_dir/build_model_matshp.dat")" = 5fa5592c72147780acc22c27b78e5c5b6f9f8521
           test "$(git hash-object "$root/res/graphics/field_sprites/frame_sequences/save.bin")" = 428be0d81e3f0831dcf6ff8d671a6d05b0814abc
+      - name: Verify simulation timing and uniform state
+        run: |
+          g++ -std=c++11 -O2 -Iandroid/performance android/tests/timing_test.cpp -o /tmp/platinum-clock-test
+          /tmp/platinum-clock-test
+          g++ -std=c++11 -O2 -Iandroid/performance android/tests/uniform_test.cpp -o /tmp/platinum-uniform-test
+          /tmp/platinum-uniform-test
       - name: Compile APK
         run: gradle -p _source/pokeplatinum-pcport-source/android assembleDebug --stacktrace
       - name: Verify adaptive layouts
@@ -211,7 +219,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Pokemon-Platinum-Android-source
-          path: Pokemon-Platinum-Android-v0.3.3-source.zip
+          path: Pokemon-Platinum-Android-v0.3.4-source.zip
           if-no-files-found: error
 
   android-smoke:
@@ -229,7 +237,7 @@ jobs:
           key: platinum-emulator-source-35926190320-v1
       - name: Extract prepared source
         run: |
-          unzip -q Pokemon-Platinum-Android-v0.3.3-source.zip -d incoming-source
+          unzip -q Pokemon-Platinum-Android-v0.3.4-source.zip -d incoming-source
           mkdir -p pokeplatinum-android
           # Replace source by content; keep only generated build directories.
           rsync -rc --delete --exclude=build_android --exclude=.gradle --exclude=build --exclude=jniLibs --exclude=third_party/android/ incoming-source/pokeplatinum-android/ pokeplatinum-android/
