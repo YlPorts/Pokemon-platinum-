@@ -6,7 +6,7 @@ import zipfile
 
 root = Path(sys.argv[1])
 excluded = {'.git', '.gradle', '__pycache__', 'build_android', 'build', 'jniLibs'}
-with zipfile.ZipFile('Pokemon-Platinum-Android-v0.3.2-source.zip', 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+with zipfile.ZipFile('Pokemon-Platinum-Android-v0.3.3-source.zip', 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
     for file in root.rglob('*'):
         relative = file.relative_to(root)
         if not file.is_file() or excluded.intersection(relative.parts):

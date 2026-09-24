@@ -91,3 +91,30 @@ La mejora en un teléfono físico necesita medición allí.
 La caché de texturas 3D ya no se vacía entera al superar 1024 entradas. Retira
 hasta 64 entradas antiguas por fotograma y conserva las usadas en los últimos
 fotogramas, incluidas las referenciadas por el dibujo translúcido pendiente.
+
+
+## 0.3.3 — optimización sin reducir la imagen
+
+Se comparó el ZIP `pokeplatinum-pcport-windows-fixed.zip` con la base de Android.
+El motor 3D de ese paquete apenas cambia; no se reemplazan las adaptaciones
+GLES, ABI, memoria ni audio de Android por las implementaciones de Windows.
+Se adapta su búsqueda alternativa de recursos españoles cuando falta la ruta
+original, conservando la prioridad de los archivos existentes y de los mods.
+El importador sigue requiriendo una ROM USA CPUE; esto no añade soporte completo
+para ROM de otras regiones.
+
+- En modo de una pantalla se evita componer por software el motor 2D invisible.
+  La lógica del juego, los comandos 3D, el audio y VBlank siguen ejecutándose.
+  Los modos de dos pantallas siguen dibujando ambas.
+- Los lotes 3D se envían a zonas sucesivas del búfer de vértices. Al agotarlo se
+  solicita almacenamiento nuevo, evitando sobrescribir datos todavía en uso.
+  Se conserva el orden de dibujo, geometría, colores, texturas y transparencias.
+- CRC32 procesa ocho bytes por iteración, con resultados idénticos al original.
+  Se mantiene la comprobación de cambios de texturas y paletas animadas.
+- Los rectángulos de presentación solo se vuelven a enviar cuando cambian.
+
+No se reducen resolución, distancia de dibujo, efectos ni velocidad del juego.
+Las pruebas comparan CRC, rutas de pantalla y 1402 envíos de vértices, además
+de comparar píxeles con el shader GLES real, texturas, alfa, descarte y niebla.
+La aceleración del CRC medida en el ordenador de compilación no representa
+los FPS del teléfono. El rendimiento 3D necesita comprobarse en el dispositivo.
